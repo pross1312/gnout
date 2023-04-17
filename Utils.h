@@ -2,6 +2,9 @@
 #include "Vec2.h"
 
 
+// initial screen size
+inline int SCREEN_WIDTH = 1500;    
+inline int SCREEN_HEIGHT = 1000;
 
 // seperate an 32 bits integer into 4 8 bits color (r g b a)
 #define UNHEX(c) (uint8_t)((c) >> 8 * 3) & (uint8_t)0xff\

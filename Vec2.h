@@ -4,8 +4,11 @@
 
 typedef struct
 {
-    int x, y;
-} Vec2;
+    float x, y;
+} Vec2f;
 
 
-Vec2 vec2(int x, int y);
+Vec2f vec2f(float x, float y);
+Vec2f addVec(Vec2f a, Vec2f b);
+Vec2f mulVec(Vec2f a, Vec2f b);
+Vec2f subVec(Vec2f a, Vec2f b);
