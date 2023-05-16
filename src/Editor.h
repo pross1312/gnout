@@ -6,8 +6,6 @@
 #include "Utils.h"
 #include "Vec2.h"
 
-inline const std::string FONT_DIR = "C:\\Windows\\Fonts\\";
-
 #define INIT_LINE_SIZE 512
 #define BOTTOM_SCROLL_BUFFER 100
 #define RIGHT_SCROLL_BUFFER 100
