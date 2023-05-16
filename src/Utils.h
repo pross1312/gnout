@@ -1,4 +1,10 @@
 #pragma once
+
+#include <GL/glew.h>
+#include <SDL2/SDL.h>
+#include <string>
+#include <fstream>
+#include <sstream>
 #include "Vec2.h"
 
 
@@ -23,7 +29,8 @@ inline void check(int code)
 }
 
 // check for pointer
-inline void* check(void* data)
+template<typename T>
+inline T check(T data)
 {
     if (!data) {
         fprintf(stderr, "Error: %s\n", SDL_GetError());
@@ -32,3 +39,12 @@ inline void* check(void* data)
     }
     return data;
 }
+
+std::string readAllFile(const char* filepath);
+
+void printShaderLog(GLuint shader);
+void printProgramLog(int prog);
+bool checkOpenGLError();
+GLuint create_compiled_shader(const char* source, GLenum type);
+GLuint create_program(const char** src, const GLenum* type, size_t n);
+

@@ -1,22 +1,6 @@
 #include "Editor.h"
 #include <assert.h>
 #include <fstream>
-// this will rendered text at a specific postiion
-// use it to draw editor text
-inline void drawString(SDL_Renderer* renderer, TTF_Font* font, const char* text, Vec2f pos, SDL_Color fg, SDL_Color bg)
-{
-    SDL_Surface* text_surface = (SDL_Surface*)check(TTF_RenderText(font, text, fg, bg));
-    SDL_Texture* text_texture = (SDL_Texture*)check(SDL_CreateTextureFromSurface(renderer, text_surface));
-    SDL_FRect dst = {
-        .x = pos.x,
-        .y = pos.y,
-        .w = (float)text_surface->w,
-        .h = (float)text_surface->h
-    };
-    check(SDL_RenderCopyF(renderer, text_texture, NULL, &dst));
-    SDL_DestroyTexture(text_texture);
-    SDL_FreeSurface(text_surface);
-}
 
 void Editor::Line::delete_all_after_pos(size_t pos)
 {
@@ -63,10 +47,9 @@ void Editor::Line::delete_at_pos(size_t pos, size_t n)
 // init editor with 0 line, each line with INIT_LINE_SIZE characters
 // text color is init to zero
 // also calculate character width and height for cursor rendering
-Editor::Editor(const std::string& font_name, int font_size)
+Editor::Editor(const std::string& font_path, int font_size)
 {
-    const std::string font_path = FONT_DIR + font_name;
-    font = (TTF_Font*)check(TTF_OpenFont(font_path.c_str(), font_size));
+    font = check(TTF_OpenFont(font_path.c_str(), font_size));
 
     line_height = TTF_FontHeight(font);
     int minx, miny, maxx, maxy, advance;
@@ -90,6 +73,19 @@ void Editor::insert_at_cursor(const char* text, size_t n)
     cursor_right(n);
     if (lines[cursor_row].char_count * char_width > text_width)
         text_width = lines[cursor_row].char_count * char_width;
+}
+
+void Editor::new_line()
+{
+    lines.insert(lines.begin() + cursor_row + (cursor_row == lines.size() ? 0 : 1), Line(INIT_LINE_SIZE));
+
+    // if increase cursor_row will be invalid for whatever reason then don't do it
+    if (cursor_row + 1 < lines.size())
+        set_cursor(cursor_row + 1, 0);
+    else
+        set_cursor(cursor_row, 0);
+
+    text_height += line_height;
 }
 
 void Editor::delete_before_cursor()
@@ -212,37 +208,6 @@ void Editor::delete_line(size_t row)
     }
 }
 
-void Editor::draw(SDL_Renderer* renderer)
-{
-    // do nothing if there's no lines to draw
-    if (lines.size() == 0)
-        return;
-    // don't draw anything that won't be show
-    for (size_t row = text_origin.y / line_height; row < lines.size(); row++) {
-        if (lines[row].char_count > 0) {
-            // draw text
-            drawString(renderer, font, lines[row].chars.data(), subVec(vec2f(0, row * line_height), text_origin),
-                       text_color, SDL_Color{ UNHEX(0x0) });
-        }
-        // don't draw anything that won't be shown
-        if (row * line_height - text_origin.y >= SCREEN_HEIGHT)
-            break;
-    }
-    draw_cursor(renderer);
-}
-
-void Editor::new_line()
-{
-    lines.insert(lines.begin() + cursor_row + (cursor_row == lines.size() ? 0 : 1), Line(INIT_LINE_SIZE));
-
-    // if increase cursor_row will be invalid for whatever reason then don't do it
-    if (cursor_row + 1 < lines.size())
-        set_cursor(cursor_row + 1, 0);
-    else
-        set_cursor(cursor_row, 0);
-
-    text_height += line_height;
-}
 
 void Editor::split_to_new_line_at_cursor()
 {
@@ -254,28 +219,6 @@ void Editor::split_to_new_line_at_cursor()
     lines[cursor_row - 1].delete_all_after_pos(pre_pos);
 }
 
-void Editor::draw_cursor(SDL_Renderer* renderer)
-{
-    assert(cursor_row < lines.size() && cursor_col <= lines[cursor_row].char_count);
-    SDL_FRect cursor{
-        .x = char_width * (float)cursor_col - text_origin.x,
-        .y = line_height * (float)cursor_row - text_origin.y,
-        .w = (float)char_width,
-        .h = (float)line_height
-    };
-
-
-    // if cursor is in middle of line then draw char at cursor with cursor_color background and black fore ground
-    if (cursor_col < lines[cursor_row].char_count) {
-        char temp[2]{ lines[cursor_row].chars[cursor_col] };
-        drawString(renderer, font, temp, vec2f(cursor.x, cursor.y), SDL_Color{ UNHEX(0x000000ff) }, cursor_color);
-    }
-    // else draw a rectangle at cursor position
-    else {
-        check(SDL_SetRenderDrawColor(renderer, cursor_color.r, cursor_color.g, cursor_color.b, cursor_color.a));
-        check(SDL_RenderFillRectF(renderer, &cursor));
-    }
-}
 
 bool Editor::save(const char* file)
 {
