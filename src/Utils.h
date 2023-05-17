@@ -5,7 +5,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include "Vec2.h"
+#include "Vec.h"
 
 
 // initial screen size
@@ -39,7 +39,6 @@ inline T check(T data)
     }
     return data;
 }
-
 std::string readAllFile(const char* filepath);
 
 void printShaderLog(GLuint shader);

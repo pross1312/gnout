@@ -4,7 +4,7 @@
 #include <string>
 #include <SDL2/SDL_ttf.h>
 #include "Utils.h"
-#include "Vec2.h"
+#include "Vec.h"
 
 #define INIT_LINE_SIZE 512
 #define BOTTOM_SCROLL_BUFFER 100
@@ -26,24 +26,16 @@ private:
     };
 
     std::vector<Line> lines;
-    Vec2f text_origin {};
-    TTF_Font* font;
-
-    SDL_Color text_color{ UNHEX(0xffffffff) };
-    SDL_Color cursor_color{ UNHEX(0xffffffff) };
 
     // cursor position in term of characters and lines
     size_t cursor_row = 0;
     size_t cursor_col = 0;
 
-    int line_height = 0; // also cursor height
-    int char_width = 0;
-    float text_height = 0; // number of lines * line_height, update every times call new line
-    float text_width = 0; // chars of max length line * char_width, update every time call insert after cursor 
-
+    friend class EditorRenderer;
 
 public:
-    Editor(const std::string& font_name, int font_size);
+    Editor() = default;
+    ~Editor() = default;
     void insert_at_cursor(const char* text, size_t n);
     // delete 1 line and move cursor to end of previous line if cursor is on that line
     // cursor_col will be set to zero to assure valid position
@@ -54,8 +46,6 @@ public:
     void split_to_new_line_at_cursor();
 
 
-    // set cursor to mouse position (in pixel) 
-    void set_cursor_to_mouse_postition(int x, int y);
     // set cursor to a position, do nothing if position is invalid
     // and adjust origin to show cursor too
     void set_cursor(size_t row, size_t col);
@@ -64,19 +54,11 @@ public:
     void cursor_down(size_t n);
     void cursor_left(size_t n);
     void cursor_right(size_t n);
-    void move_origin(float x, float y);
+    // void move_origin(float x, float y);
 
 
 
     // load and save file
     bool load(const char* file);
     bool save(const char* file);
-
-
-    void draw_cursor(SDL_Renderer* renderer);
-    // draw lines and cursor
-    void draw(SDL_Renderer* renderer);
-
-
-    ~Editor();
 };
