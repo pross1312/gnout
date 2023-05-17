@@ -44,24 +44,6 @@ void Editor::Line::delete_at_pos(size_t pos, size_t n)
     char_count -= n;
 }
 
-// init editor with 0 line, each line with INIT_LINE_SIZE characters
-// text color is init to zero
-// also calculate character width and height for cursor rendering
-Editor::Editor(const std::string& font_path, int font_size)
-{
-    font = check(TTF_OpenFont(font_path.c_str(), font_size));
-
-    line_height = TTF_FontHeight(font);
-    int minx, miny, maxx, maxy, advance;
-    check(TTF_GlyphMetrics32(font, 'a', &minx, &maxx, &miny, &maxy, &advance));
-    char_width = advance;
-}
-
-Editor::~Editor()
-{
-    TTF_CloseFont(font);
-}
-
 void Editor::insert_at_cursor(const char* text, size_t n)
 {
     if (n == 0) // don't do anything if n == 0
@@ -71,8 +53,6 @@ void Editor::insert_at_cursor(const char* text, size_t n)
     assert(cursor_row < lines.size()); // and for whatever reason i have an invalid cursor_row, abort
     lines[cursor_row].insert_at_pos(cursor_col, text, n);
     cursor_right(n);
-    if (lines[cursor_row].char_count * char_width > text_width)
-        text_width = lines[cursor_row].char_count * char_width;
 }
 
 void Editor::new_line()
@@ -84,8 +64,6 @@ void Editor::new_line()
         set_cursor(cursor_row + 1, 0);
     else
         set_cursor(cursor_row, 0);
-
-    text_height += line_height;
 }
 
 void Editor::delete_before_cursor()
@@ -126,26 +104,13 @@ void Editor::delete_at_cursor()
     }
 }
 
-// set cursor to a position and recalculate origin if necessary
+// this function won't let cursor get out of text area
 void Editor::set_cursor(size_t row, size_t col)
 {
-    if (row > lines.size() - 1 && col > lines[row].char_count)
-        return;
+    if (row > lines.size() - 1) row = lines.size() - 1;
+    if (col > lines[row].char_count) col = lines[row].char_count;
     cursor_col = col;
     cursor_row = row;
-    // check to move text to cursor if cursor is moved out of screen
-    float cursor_y = cursor_row * line_height - text_origin.y;
-    float cursor_x = cursor_col * char_width - text_origin.x;
-    Vec2f vel {.x = 0, .y = 0};
-    if (cursor_x < 0)
-        vel.x = cursor_x;
-    else if (cursor_x + char_width > SCREEN_WIDTH)
-        vel.x = cursor_x + char_width - SCREEN_WIDTH;
-    if (cursor_y < 0)
-        vel.y = cursor_y;
-    else if (cursor_y + line_height > SCREEN_HEIGHT)
-        vel.y = cursor_y + line_height - SCREEN_HEIGHT;
-    move_origin(vel.x, vel.y);
 }
 
 // move up n lines
@@ -171,6 +136,7 @@ void Editor::cursor_down(size_t n)
 }
 
 // move left n characters
+// move to new line if necessary
 void Editor::cursor_left(size_t n)
 {
     if (cursor_col < n) {
@@ -185,6 +151,7 @@ void Editor::cursor_left(size_t n)
 }
 
 // move right n characters
+// move to new line if necessary
 void Editor::cursor_right(size_t n)
 {
     if (cursor_col + n > lines[cursor_row].char_count) {
@@ -255,42 +222,5 @@ bool Editor::load(const char* file)
     cursor_row = 0;
     fin.close();
     return true;
-}
-
-
-void Editor::set_cursor_to_mouse_postition(int x, int y)
-{
-    assert(x >= 0 && y >= 0 && "Invalid mouse position");
-    size_t row = (size_t)((y + text_origin.y) / line_height);
-    size_t col = (size_t)((x + text_origin.x) / char_width);
-    if (lines.size() == 0)
-        new_line();
-    else {
-        if (row >= lines.size()) {
-            row = lines.size() - 1;
-            col = lines[row].char_count;
-        }
-        else if (col >= lines[row].char_count)
-            col = lines[row].char_count;
-        set_cursor(row, col);
-    }
-}
-
-void Editor::move_origin(float x, float y)
-{
-    Vec2f velocity {.x = x, .y = y};
-    text_origin = addVec(text_origin, velocity);
-
-    // check bound for origin (don't let we move text to far)
-    if (SCREEN_HEIGHT - (text_height - text_origin.y) > BOTTOM_SCROLL_BUFFER)
-        text_origin.y = text_height + BOTTOM_SCROLL_BUFFER - SCREEN_HEIGHT;
-    if (SCREEN_WIDTH - (text_width - text_origin.x) > RIGHT_SCROLL_BUFFER)
-        text_origin.x = text_width + RIGHT_SCROLL_BUFFER - SCREEN_WIDTH;
-    if (text_origin.y < 0.0f)
-        text_origin.y = 0.0f;
-    if (text_origin.x < 0.0f)
-        text_origin.x = 0.0f;
-    
-
 }
 

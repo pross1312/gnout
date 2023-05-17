@@ -3,77 +3,22 @@
 #include "Utils.h"
 #include <assert.h>
 
-
-
-// this will rendered text at a specific postiion
-// use it to draw editor text
-#ifdef USE_SDL_RENDERER
-inline void drawString(SDL_Renderer* renderer, TTF_Font* font, const char* text, Vec2f pos, SDL_Color fg, SDL_Color bg)
-{
-    SDL_Surface* text_surface = check(TTF_RenderText(font, text, fg, bg));
-    SDL_Texture* text_texture = check(SDL_CreateTextureFromSurface(renderer, text_surface));
-    SDL_FRect dst = {
-        .x = pos.x,
-        .y = pos.y,
-        .w = (float)text_surface->w,
-        .h = (float)text_surface->h
+inline Vec2f project_GL(Vec2f a) {
+    return Vec2f {
+        .x = a.x * 2.0f / SCREEN_WIDTH,
+        .y = a.y * 2.0f / SCREEN_HEIGHT
     };
-    check(SDL_RenderCopyF(renderer, text_texture, NULL, &dst));
-    SDL_DestroyTexture(text_texture);
-    SDL_FreeSurface(text_surface);
 }
 
-void Editor::draw_cursor(SDL_Renderer* renderer)
-{
-    assert(cursor_row < lines.size() && cursor_col <= lines[cursor_row].char_count);
-    SDL_FRect cursor{
-        .x = char_width * (float)cursor_col - text_origin.x,
-        .y = line_height * (float)cursor_row - text_origin.y,
-        .w = (float)char_width,
-        .h = (float)line_height
-    };
-
-
-    // if cursor is in middle of line then draw char at cursor with cursor_color background and black fore ground
-    if (cursor_col < lines[cursor_row].char_count) {
-        char temp[2]{ lines[cursor_row].chars[cursor_col] };
-        drawString(renderer, font, temp, vec2f(cursor.x, cursor.y), SDL_Color{ UNHEX(0x000000ff) }, cursor_color);
-    }
-    // else draw a rectangle at cursor position
-    else {
-        check(SDL_SetRenderDrawColor(renderer, cursor_color.r, cursor_color.g, cursor_color.b, cursor_color.a));
-        check(SDL_RenderFillRectF(renderer, &cursor));
-    }
-}
-
-void Editor::draw(SDL_Renderer* renderer)
-{
-    // do nothing if there's no lines to draw
-    if (lines.size() == 0)
-        return;
-    // don't draw anything that won't be show
-    for (size_t row = text_origin.y / line_height; row < lines.size(); row++) {
-        if (lines[row].char_count > 0) {
-            // draw text
-            drawString(renderer, font, lines[row].chars.data(), subVec(vec2f(0, row * line_height), text_origin),
-                       text_color, SDL_Color{ UNHEX(0x0) });
-        }
-        // don't draw anything that won't be shown
-        if (row * line_height - text_origin.y >= SCREEN_HEIGHT)
-            break;
-    }
-    draw_cursor(renderer);
-}
-#else // USE_OPENGL_RENDERER
-
-void EditorRenderer::render_line(const char* text, Vec2f pos, SDL_Color color) {
-    
+void EditorRenderer::render_text(const char* text, Vec2f pos, Vec4f fg, Vec4f bg) {
     size_t n = strlen(text);
-    float w = 0.0f;
     for (size_t i = 0; i < n; i++) {
-        int c_width = uv_pixel_cache[(int)text[i]].second;
+        Vec4f back = bg;
+        Vec4f fore = fg;
+        int ch = (int)text[i];
+        float c_width = (float)uv_pixel_cache[ch].width;
         buffers[buffer_count + i].uv = {
-            .x = (float)uv_pixel_cache[(int)text[i]].first.x / cache_font_size.x,
+            .x = (float)uv_pixel_cache[ch].uv.x / cache_font_size.x,
             .y = 0
         }; 
         buffers[buffer_count + i].uv_size = {
@@ -81,44 +26,52 @@ void EditorRenderer::render_line(const char* text, Vec2f pos, SDL_Color color) {
             .y = 1
         };
          
-        buffers[buffer_count + i].pos = {
-            .x = (pos.x + w) * 2.0f / SCREEN_WIDTH,
-            .y = pos.y       * 2.0f / SCREEN_HEIGHT
-        };
-        buffers[buffer_count + i].size = {
-            .x = c_width * 2.0f / SCREEN_WIDTH,
-            .y = cache_font_size.y  * 2.0f / SCREEN_HEIGHT
-        };
-        buffers[buffer_count + i].fg = {
-            .x = color.r / 255.0f,
-            .y = color.g / 255.0f,
-            .z = color.b / 255.0f,
-            .w = color.a / 255.0f
-        };
-        w += c_width;
+        buffers[buffer_count + i].pos = project_GL(pos);
+        buffers[buffer_count + i].size = project_GL(Vec2f{c_width, (float)cache_font_size.y});
+        buffers[buffer_count + i].fg = div(fore, 255.0f);
+        buffers[buffer_count + i].bg = div(back, 255.0f);
+        pos.x += c_width;
     }
-    glBufferData(GL_ARRAY_BUFFER, 
-                 sizeof(buffers),
-                 buffers,
-                 GL_DYNAMIC_DRAW);
-
-    
-
-
     buffer_count += n; 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, cache_font_texture);
-
 }
-void EditorRenderer::render(const Editor* editor) {
-    (void)editor;
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, cache_font_texture);
 
-    render_line("Editor render", vec2f(.0f, .0f), SDL_Color {UNHEX(0x1da2d3ff)});
+void EditorRenderer::render(const Editor* editor, float time) {
+    assert(editor);
+    glBindVertexArray(vao);
+    
+    GLuint timeLoc = glGetUniformLocation(program, "time");
+    glUniform1f(timeLoc, time * 2.0f);
+
+    Vec2f pos {-SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f}; // init at top left screen
+    clear_buffer();
+    for (const Editor::Line& line : editor->lines) {
+        render_text(line.chars.data(), pos, Vec4f {UNHEX(0xffffffff)}, Vec4f {UNHEX(0x0)});
+        pos.y -= cache_font_size.y; // opengl y axis point up
+    }
+    sync_buffer();
+    draw_buffer();
+    if (checkOpenGLError()) exit(1);
+}
+
+void EditorRenderer::sync_buffer() {
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferSubData(GL_ARRAY_BUFFER,
+                    0,
+                    sizeof(buffers),
+                    buffers);
+}
+
+void EditorRenderer::draw_buffer() {
+    glBindTexture(GL_TEXTURE_2D, cache_font_texture);
+    glClearColor(.0f, .0f, .0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, buffer_count);
-
 }
+
+void EditorRenderer::clear_buffer() {
+    buffer_count = 0;
+}
+
 void EditorRenderer::render_cursor(Vec2f pos) {
     assert(false && "unimplemented");
     (void)pos; 
@@ -128,18 +81,21 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
     cache_font_size = {0, 0};
     font = check(TTF_OpenFont(font_path, font_size));
     for (size_t i = 32; i < 128; i++) {
-        int advance, minx, maxx, miny, maxy, h;
-        check(TTF_GlyphMetrics32(font, i, &minx, &maxx, &miny, &maxy, &advance));
-        h = TTF_FontHeight(font); 
-        uv_pixel_cache[i].first = {
+        char temp[2] = {(char)i, 0};
+        SDL_Surface* BGRA_surface = check(TTF_RenderText_Blended(font, temp, SDL_Color{UNHEX(0xffffffff)}));
+        SDL_Surface* RGBA_surface = check(SDL_ConvertSurfaceFormat(BGRA_surface, SDL_PIXELFORMAT_RGBA32, 0));
+        SDL_FreeSurface(BGRA_surface);
+        
+        uv_pixel_cache[i].uv = {
             .x = cache_font_size.x,
             .y = 0
         };
-        uv_pixel_cache[i].second = advance;
-        cache_font_size.x += advance;
-        if (h > cache_font_size.y) {
-            cache_font_size.y = h;
+        uv_pixel_cache[i].width = RGBA_surface->w;
+        cache_font_size.x += RGBA_surface->w;
+        if (RGBA_surface->h > cache_font_size.y) {
+            cache_font_size.y = RGBA_surface->h;
         }
+        SDL_FreeSurface(RGBA_surface);
     }
 
     glActiveTexture(GL_TEXTURE0);
@@ -169,8 +125,8 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
         glTexSubImage2D(
             GL_TEXTURE_2D,
             0,
-            (GLint)uv_pixel_cache[i].first.x,
-            (GLint)uv_pixel_cache[i].first.y,
+            (GLint)uv_pixel_cache[i].uv.x,
+            (GLint)uv_pixel_cache[i].uv.y,
             (GLsizei)RGBA_surface->w,
             (GLsizei)RGBA_surface->h,
             GL_RGBA,
@@ -178,25 +134,36 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
             RGBA_surface->pixels);
         SDL_FreeSurface(RGBA_surface);
     }
-
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-EditorRenderer::EditorRenderer(const char* font_path, int font_size) {
+
+EditorRenderer::EditorRenderer(const char* font_path, int font_size)
+    : program {}, vao {}, vbo {}, buffer_count {}, camera {0, 0}, font {}, cache_font_texture {}, cache_font_size {}, uv_pixel_cache {}
+{
     program = create_program(shader_files, shader_types, n_shaders);
     glUseProgram(program);
-    glEnable(GL_BLEND);
-    glEnable(GL_TEXTURE_2D);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-    
+
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (checkOpenGLError()) exit(6);
     init_font_cache(font_path, font_size);
-    glBindTexture(GL_TEXTURE_2D, 0); 
-    GLuint textureLoc = glGetUniformLocation(program, "renderingTexture");
+    if (checkOpenGLError()) exit(7);
+
+    GLuint textureLoc = glGetUniformLocation(program, "cache_font_texture");
     glUniform1i(textureLoc, 0);
 
+    if (checkOpenGLError()) exit(5);
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, 
+                 sizeof(buffers),
+                 NULL,
+                 GL_DYNAMIC_DRAW);
+    if (checkOpenGLError()) exit(4);
     for (size_t attr = 0; attr < COUNT_GLYPH_ATTR; attr++) {
         glEnableVertexAttribArray(attr);
         glVertexAttribPointer(
@@ -208,13 +175,14 @@ EditorRenderer::EditorRenderer(const char* font_path, int font_size) {
             (void*)glyph_attr_defs[attr].offset);
         glVertexAttribDivisor(attr, 1); // modify the rate at which generic vertex attributes advance during instanced rendering
     }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
     
+    if (checkOpenGLError()) exit(2);
 }
 
 EditorRenderer::~EditorRenderer() {
     TTF_CloseFont(font);
 }
-
-#endif // USE_SDL_RENDERER
-
 

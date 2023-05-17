@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include <assert.h>
 
 inline std::string readAllFile(const char* filepath)
 {
@@ -51,7 +52,7 @@ bool checkOpenGLError()
     bool foundError = false;
     int glErr = glGetError();
     while (glErr != GL_NO_ERROR) {
-        printf("glError: %i\n", glErr);
+        printf("error code: %i, msg:%s\n", glErr, gluErrorString(glErr));
         foundError = true;
         glErr = glGetError();
     }
