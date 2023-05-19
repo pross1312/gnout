@@ -69,7 +69,7 @@ Vec2i subVec(Vec2i a, Vec2i b)
         .y = a.y - b.y
     };
 }
-Vec4f div(Vec4f a, float scalar) {
+Vec4f div(const Vec4f& a, float scalar) {
     return Vec4f {
         .x = a.x / scalar,
         .y = a.y / scalar,

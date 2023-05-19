@@ -7,15 +7,15 @@ inline const char* shader_files[] {
     "./shaders/vShader.glsl",
     "./shaders/fShader.glsl"
 };
-inline const GLenum shader_types[] {
+inline constexpr GLenum shader_types[] {
     GL_VERTEX_SHADER,
     GL_FRAGMENT_SHADER       
 };
 #define SCROLL_SPEED 10
 #define SCROLL_SENSITIVITY 50
-inline const size_t n_shaders = 2;
-static_assert(sizeof(shader_files) / sizeof(shader_files[0]) == sizeof(shader_types) / sizeof(shader_types[0]));
-static_assert(n_shaders == sizeof(shader_files) / sizeof(shader_files[0]));
+
+inline constexpr const size_t n_shaders = sizeof(shader_files) / sizeof(shader_files[0]);
+static_assert(n_shaders == sizeof(shader_types) / sizeof(shader_types[0]));
 
 struct UV_cache {
     Vec2f uv;
@@ -68,7 +68,7 @@ public:
     ~EditorRenderer();
     void render_text(const char* text, Vec2f pos, Vec4f fg, Vec4f bg);
     void render(const Editor* editor, float time);
-    void render_cursor(const Editor* editor);
+    void render_cursor(const Editor* editor, float time);
     void set_cursor_to_mouse(Editor* editor, Vec2f mousePos);
     void init_font_cache(const char* font_path, int font_size);
     void push_buffer(Glyph glyph);
@@ -79,8 +79,9 @@ public:
     void addVel(Vec2f vel);
 
 private:
-    inline static const Vec4f cursor_color {UNHEX(float, 0x888888ff)};
-    inline static const Vec4f text_on_cursor {UNHEX(float, 0xff)};
+    inline static Vec4f cursor_color { div(Vec4f {UNHEX(float, 0x888888ff)}, 255.0f) };
+    inline static Vec4f text_on_cursor { div(Vec4f {UNHEX(float, 0xff)}, 255.0f) };
+    inline static constexpr float cursor_draw_interval = .85; // draw/notdraw times in second
     
 private:
     Vec2f camera;

@@ -30,4 +30,4 @@ typedef struct
 {
     float x, y, z, w;
 } Vec4f;
-Vec4f div(Vec4f a, float scalar);
+Vec4f div(const Vec4f& a, float scalar);

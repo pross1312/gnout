@@ -11,15 +11,23 @@ inline Vec2f project_GL(Vec2f a) {
 }
 
 // cursor is just a special glyph and it will be put at the end of buffer
-void EditorRenderer::render_cursor(const Editor* editor) {
+void EditorRenderer::render_cursor(const Editor* editor, float time) {
     static size_t old_row = editor->cursor_row, old_col = editor->cursor_col;
+    static float next_change = time + cursor_draw_interval;
+    static bool onDraw = true;
     if (editor->lines.size() == 0)
         return;
+    Glyph cursor {};
     size_t row = editor->cursor_row;
     size_t col = editor->cursor_col;
     int ch = (int)'_';
     float c_width = uv_pixel_cache[ch].width;
-    Glyph cursor {};
+    Vec4f color = onDraw ? cursor_color : Vec4f {.0f, .0f, .0f, .0f};
+    if (time >= next_change) {
+        color = !onDraw ? cursor_color : Vec4f {.0f, .0f, .0f, .0f};
+        next_change = time + cursor_draw_interval;
+        onDraw = !onDraw;
+    }
     Vec2f cursor_pos {0, -cache_font_size.y * row};
     for (size_t c = 0; c < col; c++) {
         cursor_pos.x += uv_pixel_cache[(int)editor->lines[row][c]].width;
@@ -29,6 +37,10 @@ void EditorRenderer::render_cursor(const Editor* editor) {
         c_width *= .30;
     }
     if (old_row != row || old_col != col) {
+        // don't change when cursor is moving
+        color = cursor_color;
+        onDraw = true;
+        next_change = time + cursor_draw_interval;
         onMoveInterpolated = false; // temporary disable it, after moving camera then enable it again
         old_row = row;
         old_col = col;
@@ -50,8 +62,8 @@ void EditorRenderer::render_cursor(const Editor* editor) {
         .uv_size = vec2f(c_width / cache_font_size.x, 1),
         .pos     = project_GL(cursor_pos),
         .size    = project_GL(Vec2f{c_width, (float)cache_font_size.y}),
-        .fg      = div(cursor_color, 255.0f),
-        .bg      = div(cursor_color, 255.0f),
+        .fg      = color,
+        .bg      = color,
     };
     push_buffer(cursor);
 }
@@ -135,7 +147,7 @@ void EditorRenderer::render(const Editor* editor, float time) {
         render_text(editor->lines[i].chars.data(), pos, Vec4f {UNHEX(float, 0xffffffff)}, Vec4f {UNHEX(float, 0x0)});
         pos.y -= cache_font_size.y; // opengl y axis point up
     }
-    render_cursor(editor);
+    render_cursor(editor, time);
     sync_buffer();
     draw_buffer();
     if (checkOpenGLError()) exit(1);
