@@ -56,7 +56,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Can't init glew\n");
         exit(EXIT_FAILURE);
     }
-    EditorRenderer renderer("./fonts/Ubuntu-B.ttf", 32);
+    EditorRenderer renderer("./fonts/iosevka-regular.ttf", 32);
 // end init
     if (argc > 1) {
         // if can't load then set file_path then with normal editor
@@ -80,18 +80,20 @@ int main(int argc, char** argv)
                 const char* text = event.text.text;
                 editor.insert_at_cursor(text, strlen(text));
             } break;
+            case SDL_WINDOWEVENT: {
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    SCREEN_WIDTH = event.window.data1;
+                    SCREEN_HEIGHT = event.window.data2;
+                    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+                }
+                
+            } break;
             case SDL_MOUSEBUTTONDOWN: {
                 int x = 0, y = 0;
                 uint32_t mouse_button = SDL_GetMouseState(&x, &y);
                 if (mouse_button == SDL_BUTTON_LEFT) {
                     renderer.set_cursor_to_mouse(&editor, vec2f((float)x, (float)y));
                 }
-            } break;
-            case SDL_WINDOWEVENT_RESIZED: {
-                SCREEN_WIDTH = event.window.data1;
-                SCREEN_HEIGHT = event.window.data2;
-                glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-                
             } break;
             case SDL_MOUSEWHEEL: {
                 Vec2f vel = normalized(vec2f(event.wheel.x, event.wheel.y));
