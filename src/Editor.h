@@ -1,4 +1,5 @@
 #pragma once
+#include <assert.h>
 #include <SDL2/SDL.h>
 #include <vector>
 #include <string>
@@ -23,6 +24,7 @@ private:
         void insert_at_pos(size_t pos, const char* text, size_t n);
         void delete_all_after_pos(size_t pos);
         void delete_at_pos(size_t pos, size_t n);
+        char operator[] (size_t col) const { assert(col < char_count); return chars[col]; }
     };
 
     std::vector<Line> lines;

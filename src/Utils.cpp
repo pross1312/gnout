@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include <cmath>
 #include <assert.h>
 
 inline std::string readAllFile(const char* filepath)
@@ -31,6 +32,23 @@ inline void printShaderLog(GLuint shader)
         printf("Shader Info Log: %s\n", log);
         free(log);
     }
+}
+
+void MessageCallback(GLenum source,
+                     GLenum type,
+                     GLuint id,
+                     GLenum severity,
+                     GLsizei length,
+                     const GLchar* message,
+                     const void* userParam)
+{
+    (void) source;
+    (void) id;
+    (void) length;
+    (void) userParam;
+    fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+            (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
+            type, severity, message);
 }
 
 void printProgramLog(int prog)
@@ -91,3 +109,4 @@ GLuint create_program(const char** src, const GLenum* type, size_t n) {
     }
     return vfProgram;
 }
+

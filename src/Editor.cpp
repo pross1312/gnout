@@ -107,6 +107,7 @@ void Editor::delete_at_cursor()
 // this function won't let cursor get out of text area
 void Editor::set_cursor(size_t row, size_t col)
 {
+    if (lines.size() == 0) return;
     if (row > lines.size() - 1) row = lines.size() - 1;
     if (col > lines[row].char_count) col = lines[row].char_count;
     cursor_col = col;
@@ -116,6 +117,7 @@ void Editor::set_cursor(size_t row, size_t col)
 // move up n lines
 void Editor::cursor_up(size_t n)
 {
+    if (lines.size() == 0) return;
     if (cursor_row < n) {
         set_cursor(0, 0);
     }
@@ -127,6 +129,7 @@ void Editor::cursor_up(size_t n)
 // move down n lines
 void Editor::cursor_down(size_t n)
 {
+    if (lines.size() == 0) return;
     if (cursor_row + n > lines.size() - 1) {
         set_cursor(lines.size()-1, lines[lines.size()-1].char_count);
     }
@@ -139,6 +142,7 @@ void Editor::cursor_down(size_t n)
 // move to new line if necessary
 void Editor::cursor_left(size_t n)
 {
+    if (lines.size() == 0) return;
     if (cursor_col < n) {
         if (cursor_row == 0)
             set_cursor(0, 0);
@@ -154,6 +158,7 @@ void Editor::cursor_left(size_t n)
 // move to new line if necessary
 void Editor::cursor_right(size_t n)
 {
+    if (lines.size() == 0) return;
     if (cursor_col + n > lines[cursor_row].char_count) {
         if (cursor_row == lines.size() - 1)
             set_cursor(cursor_row, lines[cursor_row].char_count);
@@ -212,6 +217,12 @@ bool Editor::load(const char* file)
     // read a line, if not empty then create a line and insert text in
     while (!fin.eof()) {
         std::getline(fin, line);
+        line.erase(line.begin(), std::find_if(line.begin(), line.end(), [](unsigned char ch) {
+            return isprint(ch);
+        }));
+        line.erase(std::find_if(line.rbegin(), line.rend(), [](unsigned char ch) {
+            return isprint(ch);
+        }).base(), line.end());
         if (!line.empty()) {
             new_line();
             insert_at_cursor(line.c_str(), line.size());

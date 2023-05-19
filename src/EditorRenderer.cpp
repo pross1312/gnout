@@ -10,30 +10,117 @@ inline Vec2f project_GL(Vec2f a) {
     };
 }
 
+// cursor is just a special glyph and it will be put at the end of buffer
+void EditorRenderer::render_cursor(const Editor* editor) {
+    static size_t old_row = editor->cursor_row, old_col = editor->cursor_col;
+    if (editor->lines.size() == 0)
+        return;
+    size_t row = editor->cursor_row;
+    size_t col = editor->cursor_col;
+    int ch = (int)'_';
+    float c_width = uv_pixel_cache[ch].width;
+    Glyph cursor {};
+    Vec2f cursor_pos {0, -cache_font_size.y * row};
+    for (size_t c = 0; c < col; c++) {
+        cursor_pos.x += uv_pixel_cache[(int)editor->lines[row][c]].width;
+    }
+    // if cursor is in the middle of the line, render a | instead of block
+    if (editor->lines[row].char_count != col) {         
+        c_width *= .30;
+    }
+    if (old_row != row || old_col != col) {
+        onMoveInterpolated = false; // temporary disable it, after moving camera then enable it again
+        old_row = row;
+        old_col = col;
+        float dx = 0.0f;
+        float dy = 0.0f;
+        if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
+            dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
+            dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
+        } 
+        if (abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) > SCREEN_HEIGHT / 2.0f) {
+            dy = abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) - SCREEN_HEIGHT / 2.0f;
+            dy *= (cursor_pos.y > camera.y ? 1.0f : -1.0f);
+        }
+        addVel(vec2f(dx, dy));
+    }
+    cursor_pos = subVec(cursor_pos, camera);
+    cursor = {
+        .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
+        .uv_size = vec2f(c_width / cache_font_size.x, 1),
+        .pos     = project_GL(cursor_pos),
+        .size    = project_GL(Vec2f{c_width, (float)cache_font_size.y}),
+        .fg      = div(cursor_color, 255.0f),
+        .bg      = div(cursor_color, 255.0f),
+    };
+    push_buffer(cursor);
+}
+
+void EditorRenderer::addVel(Vec2f vel) {
+    camVelocity = addVec(camVelocity, vel);
+}
+
+void EditorRenderer::moveCamera(float delta) {
+    if (camVelocity.x == .0f && camVelocity.y == .0f)
+        return;
+    if (abs(camVelocity.x) < 1 && abs(camVelocity.y) < 1) {
+        camVelocity.x = camVelocity.y = .0f;
+    }
+    else {
+        if (!onMoveInterpolated) {
+            camera = addVec(camera, camVelocity);
+            camVelocity = vec2f(.0f, .0f);
+            onMoveInterpolated = true;
+        }
+        else {
+            // Vec2f normalizedVel = normalized(camVelocity);
+            camera.x += camVelocity.x * delta * SCROLL_SPEED;
+            camera.y += camVelocity.y * delta * SCROLL_SPEED;
+            camVelocity.x -= camVelocity.x * delta * SCROLL_SPEED;
+            camVelocity.y -= camVelocity.y * delta * SCROLL_SPEED;
+
+        }
+    }
+}
+
+void EditorRenderer::set_cursor_to_mouse(Editor* editor, Vec2f mousePos) {
+    if (editor->lines.size() == 0) {
+        editor->new_line();
+    }
+    else {
+        mousePos.x += (camera.x - SCREEN_WIDTH / 2.0f);
+        mousePos.y -= (camera.y + SCREEN_HEIGHT / 2.0f);
+        if (mousePos.y < 0) mousePos.y = 0;
+        if (mousePos.x < 0) mousePos.x = 0;
+        size_t row = size_t(mousePos.y / cache_font_size.y);
+        size_t col = 0;
+        float w = .0f;
+        for (col = 0; col < editor->lines[row].char_count; col++) {
+            w += uv_pixel_cache[(int)editor->lines[row][col]].width;
+            if (mousePos.x < w) break;
+        }
+        editor->set_cursor(row, col);
+    }
+}
 void EditorRenderer::render_text(const char* text, Vec2f pos, Vec4f fg, Vec4f bg) {
     size_t n = strlen(text);
     for (size_t i = 0; i < n; i++) {
         Vec4f back = bg;
         Vec4f fore = fg;
         int ch = (int)text[i];
-        float c_width = (float)uv_pixel_cache[ch].width;
-        buffers[buffer_count + i].uv = {
-            .x = (float)uv_pixel_cache[ch].uv.x / cache_font_size.x,
-            .y = 0
-        }; 
-        buffers[buffer_count + i].uv_size = {
-            .x = (float)c_width / cache_font_size.x,
-            .y = 1
-        };
-         
-        buffers[buffer_count + i].pos = project_GL(pos);
-        buffers[buffer_count + i].size = project_GL(Vec2f{c_width, (float)cache_font_size.y});
-        buffers[buffer_count + i].fg = div(fore, 255.0f);
-        buffers[buffer_count + i].bg = div(back, 255.0f);
+        float c_width = uv_pixel_cache[ch].width;
+        push_buffer(Glyph {
+            .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
+            .uv_size = vec2f(c_width / cache_font_size.x, 1),
+            .pos     = project_GL(pos),
+            .size    = project_GL(Vec2f{c_width, (float)cache_font_size.y}),
+            .fg      = div(fore, 255.0f),
+            .bg      = div(back, 255.0f),
+        });
         pos.x += c_width;
     }
-    buffer_count += n; 
 }
+
 
 void EditorRenderer::render(const Editor* editor, float time) {
     assert(editor);
@@ -42,12 +129,13 @@ void EditorRenderer::render(const Editor* editor, float time) {
     GLuint timeLoc = glGetUniformLocation(program, "time");
     glUniform1f(timeLoc, time * 2.0f);
 
-    Vec2f pos {-SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f}; // init at top left screen
+    Vec2f pos {- camera.x, - camera.y}; // init at top left screen
     clear_buffer();
-    for (const Editor::Line& line : editor->lines) {
-        render_text(line.chars.data(), pos, Vec4f {UNHEX(0xffffffff)}, Vec4f {UNHEX(0x0)});
+    for (size_t i = 0; i < editor->lines.size(); i++) {
+        render_text(editor->lines[i].chars.data(), pos, Vec4f {UNHEX(float, 0xffffffff)}, Vec4f {UNHEX(float, 0x0)});
         pos.y -= cache_font_size.y; // opengl y axis point up
     }
+    render_cursor(editor);
     sync_buffer();
     draw_buffer();
     if (checkOpenGLError()) exit(1);
@@ -61,6 +149,12 @@ void EditorRenderer::sync_buffer() {
                     buffers);
 }
 
+void EditorRenderer::push_buffer(Glyph glyph) {
+    assert(buffer_count < BUFFER_INIT_CAP);
+    buffers[buffer_count] = glyph;
+    buffer_count++;
+}
+
 void EditorRenderer::draw_buffer() {
     glBindTexture(GL_TEXTURE_2D, cache_font_texture);
     glClearColor(.0f, .0f, .0f, 1.0f);
@@ -72,17 +166,14 @@ void EditorRenderer::clear_buffer() {
     buffer_count = 0;
 }
 
-void EditorRenderer::render_cursor(Vec2f pos) {
-    assert(false && "unimplemented");
-    (void)pos; 
-}
 
+// cache all texture for drawable characters
 void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
     cache_font_size = {0, 0};
     font = check(TTF_OpenFont(font_path, font_size));
     for (size_t i = 32; i < 128; i++) {
         char temp[2] = {(char)i, 0};
-        SDL_Surface* BGRA_surface = check(TTF_RenderText_Blended(font, temp, SDL_Color{UNHEX(0xffffffff)}));
+        SDL_Surface* BGRA_surface = check(TTF_RenderText_Blended(font, temp, SDL_Color{UNHEX(uint8_t, 0xffffffff)}));
         SDL_Surface* RGBA_surface = check(SDL_ConvertSurfaceFormat(BGRA_surface, SDL_PIXELFORMAT_RGBA32, 0));
         SDL_FreeSurface(BGRA_surface);
         
@@ -118,7 +209,7 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
                  NULL);
     for (size_t i = 32; i < 128; i++) {
         char temp[2] = {(char)i, 0};
-        SDL_Surface* BGRA_surface = check(TTF_RenderText_Blended(font, temp, SDL_Color{UNHEX(0xffffffff)}));
+        SDL_Surface* BGRA_surface = check(TTF_RenderText_Blended(font, temp, SDL_Color{UNHEX(uint8_t, 0xffffffff)}));
         SDL_Surface* RGBA_surface = check(SDL_ConvertSurfaceFormat(BGRA_surface, SDL_PIXELFORMAT_RGBA32, 0));
         SDL_FreeSurface(BGRA_surface);
 
@@ -139,7 +230,8 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
 
 
 EditorRenderer::EditorRenderer(const char* font_path, int font_size)
-    : program {}, vao {}, vbo {}, buffer_count {}, camera {0, 0}, font {}, cache_font_texture {}, cache_font_size {}, uv_pixel_cache {}
+    : camera {SCREEN_WIDTH / 2.0f, -SCREEN_HEIGHT / 2.0f}, camVelocity {.0f, .0f}, program {},
+    vao {}, vbo {}, buffer_count {}, font {}, cache_font_texture {}, cache_font_size {}, uv_pixel_cache {}
 {
     program = create_program(shader_files, shader_types, n_shaders);
     glUseProgram(program);
