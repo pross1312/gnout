@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <SDL2/SDL_ttf.h>
+#include <optional>
 #include "Utils.h"
 #include "Vec.h"
 
@@ -26,12 +27,21 @@ private:
         void delete_at_pos(size_t pos, size_t n);
         char operator[] (size_t col) const { assert(col < char_count); return chars[col]; }
     };
+    class Cursor {
+    public:
+        size_t row, col;
+        Cursor():row {0}, col {0} {}
+        Cursor(size_t r, size_t c): row{r}, col{c} {}
+        bool operator==(const Cursor& b) const { return row == b.row && col == b.col; }
+        bool operator!=(const Cursor& b) const { return !(*this == b); }
+        bool operator<(const Cursor& b) const { return (row < b.row || (row == b.row && col < b.col)); }
+    };
 
-    std::vector<Line> lines;
+    std::vector<Line> lines {};
 
     // cursor position in term of characters and lines
-    size_t cursor_row = 0;
-    size_t cursor_col = 0;
+    Cursor cursor {};
+    std::optional<Cursor> start_select {};
 
     friend class EditorRenderer;
 
@@ -44,9 +54,14 @@ public:
     void delete_line(size_t row);
     void delete_before_cursor(); // remove 1 character before cursor
     void delete_at_cursor();
-    void new_line(); // add new line and set cursor to start of that line
+    void add_new_line(size_t row);
     void split_to_new_line_at_cursor();
-
+    void start_selection() { if (start_select.has_value()) return; start_select = cursor; }
+    void end_selection() { start_select.reset(); }
+    bool check_on_selection(size_t row, size_t col) const;
+    bool has_selected_text() { return start_select.has_value() && start_select.value() != cursor; }
+    std::string get_selected_text();
+    void delete_selected_text();
 
     // set cursor to a position, do nothing if position is invalid
     // and adjust origin to show cursor too

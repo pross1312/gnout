@@ -66,8 +66,8 @@ class EditorRenderer
 public:
     EditorRenderer(const char* font_path, int size);
     ~EditorRenderer();
-    void render_text(const char* text, Vec2f pos, Vec4f fg, Vec4f bg);
     void render(const Editor* editor, float time);
+    void render_text(const Editor* editor);
     void render_cursor(const Editor* editor, float time);
     void set_cursor_to_mouse(Editor* editor, Vec2f mousePos);
     void init_font_cache(const char* font_path, int font_size);
@@ -75,8 +75,10 @@ public:
     void clear_buffer();
     void sync_buffer();
     void draw_buffer();
-    void moveCamera(float delta);
-    void addVel(Vec2f vel);
+    void move_camera(float delta);
+    void add_camera_velocity(Vec2f vel);
+    void move_camera_to_cursor(Vec2f cursor_pos);
+    Vec4f get_cursor_color(float time, bool cursor_changing);
 
 private:
     inline static Vec4f cursor_color { div(Vec4f {UNHEX(float, 0x888888ff)}, 255.0f) };
