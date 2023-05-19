@@ -1,7 +1,8 @@
 #pragma once
 #include "Vec.h"
 
-#ifndef USE_SDL_RENDERER
+
+
 inline const char* shader_files[] {
     "./shaders/vShader.glsl",
     "./shaders/fShader.glsl"
@@ -10,13 +11,15 @@ inline const GLenum shader_types[] {
     GL_VERTEX_SHADER,
     GL_FRAGMENT_SHADER       
 };
+#define SCROLL_SPEED 10
+#define SCROLL_SENSITIVITY 50
 inline const size_t n_shaders = 2;
 static_assert(sizeof(shader_files) / sizeof(shader_files[0]) == sizeof(shader_types) / sizeof(shader_types[0]));
 static_assert(n_shaders == sizeof(shader_files) / sizeof(shader_files[0]));
 
 struct UV_cache {
-    Vec2i uv;
-    int width;  
+    Vec2f uv;
+    float width;  
 };
 
 struct Glyph {
@@ -65,26 +68,35 @@ public:
     ~EditorRenderer();
     void render_text(const char* text, Vec2f pos, Vec4f fg, Vec4f bg);
     void render(const Editor* editor, float time);
-    void render_cursor(Vec2f pos);
+    void render_cursor(const Editor* editor);
+    void set_cursor_to_mouse(Editor* editor, Vec2f mousePos);
     void init_font_cache(const char* font_path, int font_size);
+    void push_buffer(Glyph glyph);
     void clear_buffer();
     void sync_buffer();
     void draw_buffer();
-    
+    void moveCamera(float delta);
+    void addVel(Vec2f vel);
 
 private:
+    inline static const Vec4f cursor_color {UNHEX(float, 0x888888ff)};
+    inline static const Vec4f text_on_cursor {UNHEX(float, 0xff)};
+    
+private:
+    Vec2f camera;
+    Vec2f camVelocity;
+
+    bool onMoveInterpolated = true;
     GLuint program;
     GLuint vao;
     GLuint vbo;
 
     inline static Glyph buffers[BUFFER_INIT_CAP] {};
-    size_t buffer_count = 0;
-
-    Vec2f camera;
+    size_t buffer_count;
 
     TTF_Font* font;
     GLuint cache_font_texture; 
-    Vec2i cache_font_size;
+    Vec2f cache_font_size;
 
     // store uv offset and width, in order
     // height will be the same for all chars which is store in size variable
@@ -92,23 +104,3 @@ private:
     // so when pass to shader, divide them properly
     UV_cache uv_pixel_cache[128];
 };
-
-#else
-class EditorRenderer
-{
-public:
-    EditorRenderer(const char* font_path, int size);
-    ~EditorRenderer();
-    void render_line(SDL_Renderer* renderer, const char* text, Vec2f pos, SDL_Color color);
-    void render(SDL_Renderer* renderer, const Editor* editor);
-    void render_cursor(SDL_Renderer* renderer, Vec2f pos, SDL_Color color); 
-    
-
-private:
-    size_t char_width, line_height;
-    Vec2f text_origin;
-    TTF_Font* font;
-    SDL_Color text_color;
-};
-
-#endif
