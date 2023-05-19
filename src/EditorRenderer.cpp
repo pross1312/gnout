@@ -9,25 +9,44 @@ inline Vec2f project_GL(Vec2f a) {
         .y = a.y * 2.0f / SCREEN_HEIGHT
     };
 }
-
-// cursor is just a special glyph and it will be put at the end of buffer
-void EditorRenderer::render_cursor(const Editor* editor, float time) {
-    static size_t old_row = editor->cursor_row, old_col = editor->cursor_col;
+void EditorRenderer::move_camera_to_cursor(Vec2f cursor_pos) {
+    float dx = 0.0f;
+    float dy = 0.0f;
+    if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
+        dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
+        dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
+    } 
+    if (abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) > SCREEN_HEIGHT / 2.0f) {
+        dy = abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) - SCREEN_HEIGHT / 2.0f;
+        dy *= (cursor_pos.y > camera.y ? 1.0f : -1.0f);
+    }
+    add_camera_velocity(vec2f(dx, dy));
+}
+// for blinking cursor
+Vec4f EditorRenderer::get_cursor_color(float time, bool cursor_changing) {
     static float next_change = time + cursor_draw_interval;
     static bool onDraw = true;
-    if (editor->lines.size() == 0)
-        return;
-    Glyph cursor {};
-    size_t row = editor->cursor_row;
-    size_t col = editor->cursor_col;
-    int ch = (int)'_';
-    float c_width = uv_pixel_cache[ch].width;
+    if (cursor_changing) {
+        onDraw = true;
+        next_change = time + cursor_draw_interval;
+        return cursor_color;
+    }
     Vec4f color = onDraw ? cursor_color : Vec4f {.0f, .0f, .0f, .0f};
     if (time >= next_change) {
         color = !onDraw ? cursor_color : Vec4f {.0f, .0f, .0f, .0f};
         next_change = time + cursor_draw_interval;
         onDraw = !onDraw;
     }
+    return color;
+}
+
+// cursor is just a special glyph and it will be put at the end of buffer
+void EditorRenderer::render_cursor(const Editor* editor, float time) {
+    static Editor::Cursor old_cursor = editor->cursor;
+    if (editor->lines.size() == 0) return;
+    size_t row = editor->cursor.row, col = editor->cursor.col;
+    int ch = (int)'_';
+    float c_width = uv_pixel_cache[ch].width;
     Vec2f cursor_pos {0, -cache_font_size.y * row};
     for (size_t c = 0; c < col; c++) {
         cursor_pos.x += uv_pixel_cache[(int)editor->lines[row][c]].width;
@@ -36,27 +55,19 @@ void EditorRenderer::render_cursor(const Editor* editor, float time) {
     if (editor->lines[row].char_count != col) {         
         c_width *= .30;
     }
-    if (old_row != row || old_col != col) {
+    Vec4f color;
+    if (old_cursor != editor->cursor) {
+        old_cursor = editor->cursor;
+        color = get_cursor_color(time, true);
         // don't change when cursor is moving
-        color = cursor_color;
-        onDraw = true;
-        next_change = time + cursor_draw_interval;
         onMoveInterpolated = false; // temporary disable it, after moving camera then enable it again
-        old_row = row;
-        old_col = col;
-        float dx = 0.0f;
-        float dy = 0.0f;
-        if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
-            dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
-            dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
-        } 
-        if (abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) > SCREEN_HEIGHT / 2.0f) {
-            dy = abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) - SCREEN_HEIGHT / 2.0f;
-            dy *= (cursor_pos.y > camera.y ? 1.0f : -1.0f);
-        }
-        addVel(vec2f(dx, dy));
+        move_camera_to_cursor(cursor_pos);
+    }
+    else {
+        color = get_cursor_color(time, false);
     }
     cursor_pos = subVec(cursor_pos, camera);
+    Glyph cursor {};
     cursor = {
         .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
         .uv_size = vec2f(c_width / cache_font_size.x, 1),
@@ -68,13 +79,52 @@ void EditorRenderer::render_cursor(const Editor* editor, float time) {
     push_buffer(cursor);
 }
 
-void EditorRenderer::addVel(Vec2f vel) {
+void EditorRenderer::render_text(const Editor* editor) {
+    Vec2f pos {0 - camera.x, 0 - camera.y};
+    const std::vector<Editor::Line>& lines = editor->lines;
+    for (size_t row = 0; row < lines.size(); row++) {
+        size_t n = lines[row].char_count;
+        for (size_t col = 0; col < n; col++) {
+            Vec4f fg {UNHEX(float, 0xffffffff)};
+            Vec4f bg = editor->check_on_selection(row, col) ? Vec4f {UNHEX(float, 0x88888888)} : Vec4f {UNHEX(float, 0x0)};
+            int ch = (int)lines[row][col];
+            float c_width = uv_pixel_cache[ch].width;
+            push_buffer(Glyph {
+                .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
+                .uv_size = vec2f(c_width / cache_font_size.x, 1),
+                .pos     = project_GL(pos),
+                .size    = project_GL(Vec2f{c_width, (float)cache_font_size.y}),
+                .fg      = div(fg, 255.0f),
+                .bg      = div(bg, 255.0f),
+            });
+            pos.x += c_width;
+        }
+        pos.y -= cache_font_size.y; // opengl y axis point up
+        pos.x = -camera.x;
+    }
+}
+
+void EditorRenderer::render(const Editor* editor, float time) {
+    assert(editor);
+    glBindVertexArray(vao);
+    
+    GLuint timeLoc = glGetUniformLocation(program, "time");
+    glUniform1f(timeLoc, time * 2.0f);
+
+    clear_buffer();
+    render_text(editor);
+    render_cursor(editor, time);
+    sync_buffer();
+    draw_buffer();
+    if (checkOpenGLError()) exit(1);
+}
+
+void EditorRenderer::add_camera_velocity(Vec2f vel) {
     camVelocity = addVec(camVelocity, vel);
 }
 
-void EditorRenderer::moveCamera(float delta) {
-    if (camVelocity.x == .0f && camVelocity.y == .0f)
-        return;
+void EditorRenderer::move_camera(float delta) {
+    if (camVelocity.x == .0f && camVelocity.y == .0f) return;
     if (abs(camVelocity.x) < 1 && abs(camVelocity.y) < 1) {
         camVelocity.x = camVelocity.y = .0f;
     }
@@ -97,7 +147,7 @@ void EditorRenderer::moveCamera(float delta) {
 
 void EditorRenderer::set_cursor_to_mouse(Editor* editor, Vec2f mousePos) {
     if (editor->lines.size() == 0) {
-        editor->new_line();
+        editor->add_new_line(0);
     }
     else {
         mousePos.x += (camera.x - SCREEN_WIDTH / 2.0f);
@@ -114,45 +164,6 @@ void EditorRenderer::set_cursor_to_mouse(Editor* editor, Vec2f mousePos) {
         editor->set_cursor(row, col);
     }
 }
-void EditorRenderer::render_text(const char* text, Vec2f pos, Vec4f fg, Vec4f bg) {
-    size_t n = strlen(text);
-    for (size_t i = 0; i < n; i++) {
-        Vec4f back = bg;
-        Vec4f fore = fg;
-        int ch = (int)text[i];
-        float c_width = uv_pixel_cache[ch].width;
-        push_buffer(Glyph {
-            .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
-            .uv_size = vec2f(c_width / cache_font_size.x, 1),
-            .pos     = project_GL(pos),
-            .size    = project_GL(Vec2f{c_width, (float)cache_font_size.y}),
-            .fg      = div(fore, 255.0f),
-            .bg      = div(back, 255.0f),
-        });
-        pos.x += c_width;
-    }
-}
-
-
-void EditorRenderer::render(const Editor* editor, float time) {
-    assert(editor);
-    glBindVertexArray(vao);
-    
-    GLuint timeLoc = glGetUniformLocation(program, "time");
-    glUniform1f(timeLoc, time * 2.0f);
-
-    Vec2f pos {- camera.x, - camera.y}; // init at top left screen
-    clear_buffer();
-    for (size_t i = 0; i < editor->lines.size(); i++) {
-        render_text(editor->lines[i].chars.data(), pos, Vec4f {UNHEX(float, 0xffffffff)}, Vec4f {UNHEX(float, 0x0)});
-        pos.y -= cache_font_size.y; // opengl y axis point up
-    }
-    render_cursor(editor, time);
-    sync_buffer();
-    draw_buffer();
-    if (checkOpenGLError()) exit(1);
-}
-
 void EditorRenderer::sync_buffer() {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferSubData(GL_ARRAY_BUFFER,

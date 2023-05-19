@@ -44,10 +44,6 @@ int main(int argc, char** argv)
     SDL_GLContext context = check(SDL_GL_CreateContext(window));
     SDL_GL_MakeCurrent(window, context);
 
-    // if (glDrawArraysInstanced == NULL) {
-    //     fprintf(stderr, "Support for EXT_draw_instanced is required!\n");
-    //     exit(1);
-    // }
     if (glDebugMessageCallback != NULL) {
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageCallback(MessageCallback, 0);
@@ -57,16 +53,12 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
     EditorRenderer renderer("./fonts/iosevka-regular.ttf", 32);
-// end init
     if (argc > 1) {
-        // if can't load then set file_path then with normal editor
-        if (editor.load(argv[1])) {
-            file_path = argv[1];
-        }
-        else {
+        file_path = argv[1];
+        if (editor.load(argv[1]) == false) {
+            // can't open file argv[1]
         }
     }
-// main loop
     SDL_Event event {};
     bool quit = false;
     while (!quit) {
@@ -86,7 +78,6 @@ int main(int argc, char** argv)
                     SCREEN_HEIGHT = event.window.data2;
                     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
                 }
-                
             } break;
             case SDL_MOUSEBUTTONDOWN: {
                 int x = 0, y = 0;
@@ -99,7 +90,7 @@ int main(int argc, char** argv)
                 Vec2f vel = normalized(vec2f(event.wheel.x, event.wheel.y));
                 vel.x *= SCROLL_SENSITIVITY;
                 vel.y *= SCROLL_SENSITIVITY;
-                renderer.addVel(vel); 
+                renderer.add_camera_velocity(vel); 
             } break;
             case SDL_KEYDOWN: {
                 handle_keydown(event.key);
@@ -110,7 +101,7 @@ int main(int argc, char** argv)
             }
         }
         
-        renderer.moveCamera(DELTA_TIME);
+        renderer.move_camera(DELTA_TIME);
         renderer.render(&editor, start_tick / 1000.0f);
         SDL_GL_SwapWindow(window);
         uint32_t interval = SDL_GetTicks() - start_tick;
@@ -118,18 +109,19 @@ int main(int argc, char** argv)
             SDL_Delay(1000 / FPS - interval);
         }
     }
-// end loop
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);
     return 0;
 }
+
+bool onShift = false;
 bool onCtrl = false;
 void handle_keydown(SDL_KeyboardEvent& event) {
     switch (event.keysym.sym) {
     case SDLK_DELETE: {
         editor.delete_at_cursor();
     } break;
-    case SDLK_LCTRL: case SDLK_RSHIFT: {
+    case SDLK_LCTRL: case SDLK_RCTRL: {
         onCtrl = true;
     } break;
     case SDLK_s: {
@@ -140,13 +132,19 @@ void handle_keydown(SDL_KeyboardEvent& event) {
                 assert(false && "Don't know yet");
         }
     } break;
+    case SDLK_LSHIFT: case SDLK_RSHIFT: {
+        onShift = true;
+    } break;
+    case SDLK_ESCAPE: {
+        editor.end_selection();
+    } break;
     case SDLK_v: {
         if (onCtrl) {
             char* clip_board_text = SDL_GetClipboardText();
             if (clip_board_text == NULL)
                 break;
             std::string_view sv(clip_board_text);
-            // include line after line ...
+            // insert line after line ...
             size_t start = 0;
             while (start < sv.size()) {
                 size_t end = sv.find('\n', start);
@@ -154,30 +152,50 @@ void handle_keydown(SDL_KeyboardEvent& event) {
                     end = sv.size();
                 editor.insert_at_cursor(clip_board_text + start, end - start);
                 if (end != sv.size())
-                    editor.new_line();
+                    editor.add_new_line(0);
                 start = end + 1;
             }
             SDL_free(clip_board_text);
         }
     } break;
+    case SDLK_c: {
+        if (onCtrl && editor.has_selected_text()) {
+            std::string selected_text = editor.get_selected_text();
+            SDL_SetClipboardText(selected_text.c_str());
+        }
+    } break;
         // handle navigate events.
     case SDLK_UP: {
+        if (onShift) editor.start_selection();
+        else editor.end_selection();
         editor.cursor_up(1);
     } break;
     case SDLK_DOWN: {
+        if (onShift) editor.start_selection();
+        else editor.end_selection();
         editor.cursor_down(1);
     } break;
     case SDLK_LEFT: {
+        if (onShift) editor.start_selection();
+        else editor.end_selection();
         editor.cursor_left(1);
     } break;
     case SDLK_RIGHT: {
+        if (onShift) editor.start_selection();
+        else editor.end_selection();
         editor.cursor_right(1);
     } break;
     case SDLK_RETURN: {
         editor.split_to_new_line_at_cursor();
     } break;
     case SDLK_BACKSPACE: {
-        editor.delete_before_cursor();
+        if (editor.has_selected_text()) {
+            editor.delete_selected_text();
+            editor.end_selection();
+        }
+        else {
+            editor.delete_before_cursor();
+        }
     } break;
     }
 }
@@ -185,6 +203,9 @@ void handle_keyup(SDL_KeyboardEvent& event) {
     switch (event.keysym.sym) {
     case SDLK_LCTRL: case SDLK_RCTRL: {
         onCtrl = false;
+    } break;
+    case SDLK_LSHIFT: case SDLK_RSHIFT: {
+        onShift = false;
     } break;
     }
 }

@@ -19,8 +19,6 @@ typedef struct
 {
     int x, y;
 } Vec2i;
-
-
 Vec2i vec2i(int x, int y);
 Vec2i addVec(Vec2i a, Vec2i b);
 Vec2i mulVec(Vec2i a, Vec2i b);
