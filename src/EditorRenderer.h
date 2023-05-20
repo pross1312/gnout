@@ -11,8 +11,8 @@ inline constexpr GLenum shader_types[] {
     GL_VERTEX_SHADER,
     GL_FRAGMENT_SHADER       
 };
-#define SCROLL_SPEED 10
-#define SCROLL_SENSITIVITY 50
+#define SCROLL_SPEED 2.0f
+#define SCROLL_SENSITIVITY 500
 
 inline constexpr const size_t n_shaders = sizeof(shader_files) / sizeof(shader_files[0]);
 static_assert(n_shaders == sizeof(shader_types) / sizeof(shader_types[0]));
