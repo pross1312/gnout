@@ -12,6 +12,8 @@ inline Vec2f project_GL(Vec2f a) {
 void EditorRenderer::move_camera_to_cursor(Vec2f cursor_pos) {
     float dx = 0.0f;
     float dy = 0.0f;
+    // dx = cursor_pos.x - camera.x;
+    // dy = cursor_pos.y - camera.y;
     if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
         dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
         dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
@@ -42,17 +44,18 @@ Vec4f EditorRenderer::get_cursor_color(float time, bool cursor_changing) {
 
 // cursor is just a special glyph and it will be put at the end of buffer
 void EditorRenderer::render_cursor(const Editor* editor, float time) {
+    const std::vector<Editor::Line>* lines = editor->lines;
     static Editor::Cursor old_cursor = editor->cursor;
-    if (editor->lines.size() == 0) return;
+    if (lines->size() == 0) return;
     size_t row = editor->cursor.row, col = editor->cursor.col;
     int ch = (int)'_';
     float c_width = uv_pixel_cache[ch].width;
     Vec2f cursor_pos {0, -cache_font_size.y * row};
     for (size_t c = 0; c < col; c++) {
-        cursor_pos.x += uv_pixel_cache[(int)editor->lines[row][c]].width;
+        cursor_pos.x += uv_pixel_cache[(int)(*lines)[row][c]].width;
     }
     // if cursor is in the middle of the line, render a | instead of block
-    if (editor->lines[row].char_count != col) {         
+    if ((*lines)[row].char_count != col) {         
         c_width *= .30;
     }
     Vec4f color;
@@ -60,7 +63,7 @@ void EditorRenderer::render_cursor(const Editor* editor, float time) {
         old_cursor = editor->cursor;
         color = get_cursor_color(time, true);
         // don't change when cursor is moving
-        onMoveInterpolated = false; // temporary disable it, after moving camera then enable it again
+        // onMoveInterpolated = false; // temporary disable it, after moving camera then enable it again
         move_camera_to_cursor(cursor_pos);
     }
     else {
@@ -80,14 +83,14 @@ void EditorRenderer::render_cursor(const Editor* editor, float time) {
 }
 
 void EditorRenderer::render_text(const Editor* editor) {
-    Vec2f pos {0 - camera.x, 0 - camera.y};
-    const std::vector<Editor::Line>& lines = editor->lines;
-    for (size_t row = 0; row < lines.size(); row++) {
-        size_t n = lines[row].char_count;
+    const std::vector<Editor::Line>* lines = editor->lines;
+    Vec2f pos {-camera.x, -camera.y};
+    for (size_t row = 0; row < lines->size(); row++) {
+        size_t n = (*lines)[row].char_count;
         for (size_t col = 0; col < n; col++) {
             Vec4f fg {UNHEX(float, 0xffffffff)};
             Vec4f bg = editor->check_on_selection(row, col) ? Vec4f {UNHEX(float, 0x88888888)} : Vec4f {UNHEX(float, 0x0)};
-            int ch = (int)lines[row][col];
+            int ch = (int)(*lines)[row][col];
             float c_width = uv_pixel_cache[ch].width;
             push_buffer(Glyph {
                 .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
@@ -125,7 +128,7 @@ void EditorRenderer::add_camera_velocity(Vec2f vel) {
 
 void EditorRenderer::move_camera(float delta) {
     if (camVelocity.x == .0f && camVelocity.y == .0f) return;
-    if (abs(camVelocity.x) < 1 && abs(camVelocity.y) < 1) {
+    if (abs(camVelocity.x) < 10 && abs(camVelocity.y) < 10) {
         camVelocity.x = camVelocity.y = .0f;
     }
     else {
@@ -146,7 +149,8 @@ void EditorRenderer::move_camera(float delta) {
 }
 
 void EditorRenderer::set_cursor_to_mouse(Editor* editor, Vec2f mousePos) {
-    if (editor->lines.size() == 0) {
+    const std::vector<Editor::Line>* lines= editor->lines;
+    if (lines->size() == 0) {
         editor->add_new_line(0);
     }
     else {
@@ -157,8 +161,8 @@ void EditorRenderer::set_cursor_to_mouse(Editor* editor, Vec2f mousePos) {
         size_t row = size_t(mousePos.y / cache_font_size.y);
         size_t col = 0;
         float w = .0f;
-        for (col = 0; col < editor->lines[row].char_count; col++) {
-            w += uv_pixel_cache[(int)editor->lines[row][col]].width;
+        for (col = 0; col < (*lines)[row].char_count; col++) {
+            w += uv_pixel_cache[(int)(*lines)[row][col]].width;
             if (mousePos.x < w) break;
         }
         editor->set_cursor(row, col);

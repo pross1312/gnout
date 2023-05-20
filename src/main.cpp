@@ -59,6 +59,9 @@ int main(int argc, char** argv)
             // can't open file argv[1]
         }
     }
+    else {
+        editor.change_mode(FILE_EXPLORER);
+    }
     SDL_Event event {};
     bool quit = false;
     while (!quit) {
@@ -67,10 +70,6 @@ int main(int argc, char** argv)
             switch (event.type) {
             case SDL_QUIT: {
                 quit = true;
-            } break;
-            case SDL_TEXTINPUT: {
-                const char* text = event.text.text;
-                editor.insert_at_cursor(text, strlen(text));
             } break;
             case SDL_WINDOWEVENT: {
                 if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -98,6 +97,12 @@ int main(int argc, char** argv)
             case SDL_KEYUP: {
                 handle_keyup(event.key);
             } break;
+            case SDL_TEXTINPUT: {
+                if (editor.get_mode() == TEXT) {
+                    const char* text = event.text.text;
+                    editor.insert_at_cursor(text, strlen(text));
+                }
+            } break;
             }
         }
         
@@ -119,6 +124,7 @@ bool onCtrl = false;
 void handle_keydown(SDL_KeyboardEvent& event) {
     switch (event.keysym.sym) {
     case SDLK_DELETE: {
+        if (editor.get_mode() != TEXT) break;
         editor.delete_at_cursor();
     } break;
     case SDLK_LCTRL: case SDLK_RCTRL: {
@@ -139,7 +145,7 @@ void handle_keydown(SDL_KeyboardEvent& event) {
         editor.end_selection();
     } break;
     case SDLK_v: {
-        if (onCtrl) {
+        if (onCtrl && editor.get_mode() == TEXT) {
             char* clip_board_text = SDL_GetClipboardText();
             if (clip_board_text == NULL)
                 break;
@@ -158,6 +164,11 @@ void handle_keydown(SDL_KeyboardEvent& event) {
             SDL_free(clip_board_text);
         }
     } break;
+    case SDLK_p: {
+        if (onCtrl && editor.get_mode() == TEXT) {
+            editor.change_mode(FILE_EXPLORER);
+        }
+    } break; 
     case SDLK_c: {
         if (onCtrl && editor.has_selected_text()) {
             std::string selected_text = editor.get_selected_text();
@@ -186,9 +197,15 @@ void handle_keydown(SDL_KeyboardEvent& event) {
         editor.cursor_right(1);
     } break;
     case SDLK_RETURN: {
-        editor.split_to_new_line_at_cursor();
+        if (editor.get_mode() == TEXT) {
+            editor.split_to_new_line_at_cursor();
+        }
+        else {
+            editor.open_file_at_cursor();
+        }
     } break;
     case SDLK_BACKSPACE: {
+        if (editor.get_mode() != TEXT) break;
         if (editor.has_selected_text()) {
             editor.delete_selected_text();
             editor.end_selection();

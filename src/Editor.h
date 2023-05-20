@@ -1,5 +1,7 @@
 #pragma once
 #include <assert.h>
+#include <filesystem>
+namespace fs = std::filesystem;
 #include <SDL2/SDL.h>
 #include <vector>
 #include <string>
@@ -8,9 +10,15 @@
 #include "Utils.h"
 #include "Vec.h"
 
+
 #define INIT_LINE_SIZE 512
 #define BOTTOM_SCROLL_BUFFER 100
 #define RIGHT_SCROLL_BUFFER 100
+
+enum Mode {
+    FILE_EXPLORER,
+    TEXT,
+};
 
 
 class Editor
@@ -22,6 +30,7 @@ private:
         std::vector<char> chars; // stort text of a line
         size_t char_count;       // number of characters currently on line
         Line(size_t init_size): chars(init_size, '\0'), char_count(0) {}
+        Line(const char* init_text) : chars(init_text, init_text + strlen(init_text) + 1), char_count(strlen(init_text)) {}
         void insert_at_pos(size_t pos, const char* text, size_t n);
         void delete_all_after_pos(size_t pos);
         void delete_at_pos(size_t pos, size_t n);
@@ -36,18 +45,29 @@ private:
         bool operator!=(const Cursor& b) const { return !(*this == b); }
         bool operator<(const Cursor& b) const { return (row < b.row || (row == b.row && col < b.col)); }
     };
-
-    std::vector<Line> lines {};
+    class FileExplorer {
+    public:
+        fs::path current_path;
+        std::vector<Line> entries;
+        FileExplorer(const char* dir_path);
+        void change_dir(fs::path dir_path);
+        void open(size_t row);
+    };
+    char* current_file;
+    Mode mode;
+    FileExplorer file_explorer;
+    std::vector<Line> text_lines;
+    std::vector<Line>* lines;
 
     // cursor position in term of characters and lines
-    Cursor cursor {};
-    std::optional<Cursor> start_select {};
+    Cursor cursor;
+    std::optional<Cursor> start_select;
 
     friend class EditorRenderer;
 
 public:
-    Editor() = default;
-    ~Editor() = default;
+    Editor();
+    ~Editor();
     void insert_at_cursor(const char* text, size_t n);
     // delete 1 line and move cursor to end of previous line if cursor is on that line
     // cursor_col will be set to zero to assure valid position
@@ -60,6 +80,10 @@ public:
     void end_selection() { start_select.reset(); }
     bool check_on_selection(size_t row, size_t col) const;
     bool has_selected_text() { return start_select.has_value() && start_select.value() != cursor; }
+    void change_mode(Mode m);
+    void open_file_at_cursor();
+    void reset();
+    Mode get_mode() { return mode; };
     std::string get_selected_text();
     void delete_selected_text();
 
