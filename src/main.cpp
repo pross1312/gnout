@@ -44,13 +44,14 @@ int main(int argc, char** argv)
     SDL_GLContext context = check(SDL_GL_CreateContext(window));
     SDL_GL_MakeCurrent(window, context);
 
-    if (glDebugMessageCallback != NULL) {
-        glEnable(GL_DEBUG_OUTPUT);
-        glDebugMessageCallback(MessageCallback, 0);
-    }
     if (GLEW_OK != glewInit()) {
         fprintf(stderr, "Can't init glew\n");
         exit(EXIT_FAILURE);
+    }
+
+    if (glDebugMessageCallback != NULL) {
+        glEnable(GL_DEBUG_OUTPUT);
+        glDebugMessageCallback(MessageCallback, 0);
     }
     EditorRenderer renderer("./fonts/iosevka-regular.ttf", 32);
     if (argc > 1) {
@@ -70,6 +71,13 @@ int main(int argc, char** argv)
             switch (event.type) {
             case SDL_QUIT: {
                 quit = true;
+            } break;
+            case SDL_MULTIGESTURE: {
+                printf("multi gesture detected\n");
+                printf("nF: %u\n", event.mgesture.numFingers);
+                printf("x : %f\n", event.mgesture.x);
+                printf("y : %f\n", event.mgesture.y);
+                printf("d : %f\n", event.mgesture.dDist);
             } break;
             case SDL_WINDOWEVENT: {
                 if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -132,10 +140,7 @@ void handle_keydown(SDL_KeyboardEvent& event) {
     } break;
     case SDLK_s: {
         if (onCtrl) {
-            if (file_path)
-                editor.save(file_path);
-            else
-                assert(false && "Don't know yet");
+            assert(editor.save() == true);
         }
     } break;
     case SDLK_LSHIFT: case SDLK_RSHIFT: {
