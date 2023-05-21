@@ -12,17 +12,17 @@ inline Vec2f project_GL(Vec2f a) {
 void EditorRenderer::move_camera_to_cursor(Vec2f cursor_pos) {
     float dx = 0.0f;
     float dy = 0.0f;
-    // dx = cursor_pos.x - camera.x;
-    // dy = cursor_pos.y - camera.y;
-    if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
-        dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
-        dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
-    } 
-    if (abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) > SCREEN_HEIGHT / 2.0f) {
-        dy = abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) - SCREEN_HEIGHT / 2.0f;
-        dy *= (cursor_pos.y > camera.y ? 1.0f : -1.0f);
-    }
-    add_camera_velocity(vec2f(dx, dy));
+    dx = cursor_pos.x - camera.x;
+    dy = cursor_pos.y - camera.y;
+    // if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
+    //     dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
+    //     dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
+    // } 
+    // if (abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) > SCREEN_HEIGHT / 2.0f) {
+    //     dy = abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) - SCREEN_HEIGHT / 2.0f;
+    //     dy *= (cursor_pos.y > camera.y ? 1.0f : -1.0f);
+    // }
+    add_camera_velocity(subVec(vec2f(dx, dy), camVelocity));
 }
 // for blinking cursor
 Vec4f EditorRenderer::get_cursor_color(float time, bool cursor_changing) {
@@ -92,14 +92,15 @@ void EditorRenderer::render_text(const Editor* editor) {
             Vec4f bg = editor->check_on_selection(row, col) ? Vec4f {UNHEX(float, 0x88888888)} : Vec4f {UNHEX(float, 0x0)};
             int ch = (int)(*lines)[row][col];
             float c_width = uv_pixel_cache[ch].width;
-            push_buffer(Glyph {
+            Glyph glyph {
                 .uv      = divVec(uv_pixel_cache[ch].uv, cache_font_size),
                 .uv_size = vec2f(c_width / cache_font_size.x, 1),
                 .pos     = project_GL(pos),
                 .size    = project_GL(Vec2f{c_width, (float)cache_font_size.y}),
                 .fg      = div(fg, 255.0f),
                 .bg      = div(bg, 255.0f),
-            });
+            };
+            push_buffer(glyph);
             pos.x += c_width;
         }
         pos.y -= cache_font_size.y; // opengl y axis point up
@@ -257,7 +258,7 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
 
 
 EditorRenderer::EditorRenderer(const char* font_path, int font_size)
-    : camera {SCREEN_WIDTH / 2.0f, -SCREEN_HEIGHT / 2.0f}, camVelocity {.0f, .0f}, program {},
+    : camera {.0f, .0f}, camVelocity {.0f, .0f}, program {},
     vao {}, vbo {}, buffer_count {}, font {}, cache_font_texture {}, cache_font_size {}, uv_pixel_cache {}
 {
     program = create_program(shader_files, shader_types, n_shaders);

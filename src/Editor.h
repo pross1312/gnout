@@ -101,5 +101,5 @@ public:
 
     // load and save file
     bool load(const char* file);
-    bool save(const char* file);
+    bool save();
 };

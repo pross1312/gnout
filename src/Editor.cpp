@@ -296,10 +296,11 @@ bool Editor::check_on_selection(size_t row, size_t col) const {
 }
 
 
-bool Editor::save(const char* file)
+bool Editor::save()
 {
+    assert(current_file != NULL);
     assert(mode == TEXT);
-    std::ofstream fout(file);
+    std::ofstream fout(current_file, std::ios::out);
     if (!fout.is_open())
         return false;
     // simply iterate and write every line to file
@@ -316,7 +317,38 @@ void Editor::reset() {
     if (current_file != NULL) delete[] current_file;
     current_file = NULL;
 }
+const char* staticMap(char c) {
+    switch (c) {
+        case '\a': return "\\a";
+        case '\b': return "\\b";
+        case '\t': return "    ";
+        case '\n': return "\\n";
+        case '\v': return "\\v";
+        case '\f': return "\\f";
+        case '\r': return "";
 
+        case '\"': return "\"";
+        case '\'': return "\'";
+        case '\?': return "\?";
+        case '\\': return "\\";
+    }
+    return nullptr;
+}
+
+std::string pre_process_line(const std::string& input) {
+    std::stringstream ss;
+    for (char c : input) {
+        const char* str = staticMap(c);
+        if (str) { 
+            ss << str;
+        } else if (!isprint(static_cast<unsigned char>(c))) {
+            ss << "\\u" << std::hex << std::setfill('0') << std::setw(4) << (static_cast<unsigned int>(static_cast<unsigned char>(c)));
+        } else {
+            ss << c;
+        }
+    }
+    return ss.str();
+}
 bool Editor::load(const char* file)
 {
     reset();
@@ -332,12 +364,13 @@ bool Editor::load(const char* file)
     // read a line, if not empty then create a line and insert text in
     while (!fin.eof()) {
         std::getline(fin, line);
-        line.erase(line.begin(), std::find_if(line.begin(), line.end(), [](unsigned char ch) {
-            return isprint(ch);
-        }));
-        line.erase(std::find_if(line.rbegin(), line.rend(), [](unsigned char ch) {
-            return isprint(ch);
-        }).base(), line.end());
+        line = pre_process_line(line);
+        // line.erase(line.begin(), std::find_if(line.begin(), line.end(), [](unsigned char ch) {
+        //     return ch != '\r';
+        // }));
+        // line.erase(std::find_if(line.rbegin(), line.rend(), [](unsigned char ch) {
+        //     return ch != '\r';
+        // }).base(), line.end());
         if (!line.empty()) {
             add_new_line(text_lines.size());
             text_lines[text_lines.size()-1].insert_at_pos(0, line.c_str(), line.size());
