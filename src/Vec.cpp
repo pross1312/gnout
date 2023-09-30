@@ -1,5 +1,4 @@
 #include "Vec.h"
-
 Vec2f vec2f(float x, float y)
 {
     Vec2f result = {
@@ -8,7 +7,6 @@ Vec2f vec2f(float x, float y)
     };
     return result;
 }
-
 Vec2f addVec(Vec2f a, Vec2f b)
 {
     return Vec2f {
@@ -30,7 +28,6 @@ Vec2f subVec(Vec2f a, Vec2f b)
         .y = a.y - b.y
     };
 }
-
 Vec2f divVec(Vec2f a, Vec2f b)
 {
     return Vec2f {
@@ -38,7 +35,6 @@ Vec2f divVec(Vec2f a, Vec2f b)
         .y = a.y / b.y
     };
 }
-
 Vec2i vec2i(int x, int y)
 {
     Vec2i result = {
@@ -47,7 +43,6 @@ Vec2i vec2i(int x, int y)
     };
     return result;
 }
-
 Vec2i addVec(Vec2i a, Vec2i b)
 {
     return Vec2i {

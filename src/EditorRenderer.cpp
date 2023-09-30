@@ -9,6 +9,7 @@ inline Vec2f project_GL(Vec2f a) {
         .y = a.y * 2.0f / SCREEN_HEIGHT
     };
 }
+
 void EditorRenderer::move_camera_to_cursor(Vec2f cursor_pos) {
     float dx = 0.0f;
     float dy = 0.0f;
@@ -17,13 +18,14 @@ void EditorRenderer::move_camera_to_cursor(Vec2f cursor_pos) {
     // if (abs(cursor_pos.x - camera.x) > SCREEN_WIDTH / 2.0f) {
     //     dx = abs(cursor_pos.x - camera.x) - SCREEN_WIDTH / 2.0f;
     //     dx *= (cursor_pos.x > camera.x ? 1.0f : -1.0f);
-    // } 
+    // }
     // if (abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) > SCREEN_HEIGHT / 2.0f) {
     //     dy = abs(cursor_pos.y - camera.y) + (cursor_pos.y > camera.y ? 0 : cache_font_size.y) - SCREEN_HEIGHT / 2.0f;
     //     dy *= (cursor_pos.y > camera.y ? 1.0f : -1.0f);
     // }
     add_camera_velocity(subVec(vec2f(dx, dy), camVelocity));
 }
+
 // for blinking cursor
 Vec4f EditorRenderer::get_cursor_color(float time, bool cursor_changing) {
     static float next_change = time + cursor_draw_interval;
@@ -48,14 +50,14 @@ void EditorRenderer::render_cursor(const Editor* editor, float time) {
     static Editor::Cursor old_cursor = editor->cursor;
     if (lines->size() == 0) return;
     size_t row = editor->cursor.row, col = editor->cursor.col;
-    int ch = (int)'_';
+    int ch = (int)' ';
     float c_width = uv_pixel_cache[ch].width;
     Vec2f cursor_pos {0, -cache_font_size.y * row};
     for (size_t c = 0; c < col; c++) {
         cursor_pos.x += uv_pixel_cache[(int)(*lines)[row][c]].width;
     }
     // if cursor is in the middle of the line, render a | instead of block
-    if ((*lines)[row].char_count != col) {         
+    if ((*lines)[row].char_count != col) {
         c_width *= .30;
     }
     Vec4f color;
@@ -111,7 +113,7 @@ void EditorRenderer::render_text(const Editor* editor) {
 void EditorRenderer::render(const Editor* editor, float time) {
     assert(editor);
     glBindVertexArray(vao);
-    
+
     GLuint timeLoc = glGetUniformLocation(program, "time");
     glUniform1f(timeLoc, time * 2.0f);
 
@@ -204,7 +206,7 @@ void EditorRenderer::init_font_cache(const char* font_path, int font_size) {
         SDL_Surface* BGRA_surface = check(TTF_RenderText_Blended(font, temp, SDL_Color{UNHEX(uint8_t, 0xffffffff)}));
         SDL_Surface* RGBA_surface = check(SDL_ConvertSurfaceFormat(BGRA_surface, SDL_PIXELFORMAT_RGBA32, 0));
         SDL_FreeSurface(BGRA_surface);
-        
+
         uv_pixel_cache[i].uv = {
             .x = cache_font_size.x,
             .y = 0
@@ -279,7 +281,7 @@ EditorRenderer::EditorRenderer(const char* font_path, int font_size)
     if (checkOpenGLError()) exit(5);
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, 
+    glBufferData(GL_ARRAY_BUFFER,
                  sizeof(buffers),
                  NULL,
                  GL_DYNAMIC_DRAW);
@@ -298,11 +300,10 @@ EditorRenderer::EditorRenderer(const char* font_path, int font_size)
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-    
+
     if (checkOpenGLError()) exit(2);
 }
 
 EditorRenderer::~EditorRenderer() {
     TTF_CloseFont(font);
 }
-

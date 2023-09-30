@@ -6,20 +6,20 @@ Editor::FileExplorer::FileExplorer(const char* dir_path) {
     char* absolute_path = realpath(dir_path, NULL);
     current_path = fs::path{absolute_path};
     free(absolute_path);
-    entries.push_back(Line{"."});
-    entries.push_back(Line{".."});
-    for (auto const& entry : fs::directory_iterator(current_path)) {
-        entries.push_back(Line{entry.path().filename().c_str()});
-    }
+    change_dir(current_path);
 }
 
 void Editor::FileExplorer::change_dir(fs::path dir_path) {
     current_path = dir_path;
     entries.clear();
-    entries.push_back(Line{"."});
-    entries.push_back(Line{".."});
+    entries.push_back(Line{"./"});
+    entries.push_back(Line{"../"});
     for (auto const& entry : fs::directory_iterator(dir_path)) {
         entries.push_back(Line{entry.path().filename().c_str()});
+        if (entry.is_directory()) {
+            auto line = --entries.end();
+            line->insert_at_pos(line->char_count, "/", 1);
+        }
     }
 }
 
@@ -41,7 +41,7 @@ void Editor::Line::insert_at_pos(size_t pos, const char* text, size_t n)
     if (char_count + n > chars.size())
         chars.insert(chars.begin() + pos, text, text + n);
     else {
-        // if have enough capacity but cursor is in middle of line shift text right first 
+        // if have enough capacity but cursor is in middle of line shift text right first
         if (pos < char_count) {
             char* line_buffer = chars.data();
             memmove(line_buffer + pos + n, line_buffer + pos, char_count - pos);
@@ -194,7 +194,7 @@ void Editor::cursor_right(size_t n)
 
 }
 
-// delete line and move cursor if cursor is on that line 
+// delete line and move cursor if cursor is on that line
 void Editor::delete_line(size_t row)
 {
     assert(row < text_lines.size());
@@ -213,7 +213,7 @@ void Editor::split_to_new_line_at_cursor()
     else {
         add_new_line(cursor.row + 1);
         text_lines[cursor.row + 1].insert_at_pos(0, text_lines[cursor.row].chars.data() + cursor.col, text_lines[cursor.row].char_count - cursor.col);
-        text_lines[cursor.row].delete_at_pos(cursor.col, text_lines[cursor.row].char_count - cursor.col); 
+        text_lines[cursor.row].delete_at_pos(cursor.col, text_lines[cursor.row].char_count - cursor.col);
         set_cursor(cursor.row + 1, 0);
     }
 }
@@ -264,7 +264,7 @@ void Editor::delete_selected_text() {
         text_lines[start.row].delete_at_pos(start.col, text_lines[start.row].char_count - start.col);
         text_lines[start.row].insert_at_pos(text_lines[start.row].char_count, text_lines[end.row].chars.data() + end.col, text_lines[end.row].char_count - end.col);
         for (size_t row = end.row; row > start.row; row--) {
-            delete_line(row); 
+            delete_line(row);
         }
         set_cursor(start.row, start.col);
     }
@@ -339,7 +339,7 @@ std::string pre_process_line(const std::string& input) {
     std::stringstream ss;
     for (char c : input) {
         const char* str = staticMap(c);
-        if (str) { 
+        if (str) {
             ss << str;
         } else if (!isprint(static_cast<unsigned char>(c))) {
             ss << "\\u" << std::hex << std::setfill('0') << std::setw(4) << (static_cast<unsigned int>(static_cast<unsigned char>(c)));
@@ -399,7 +399,7 @@ void Editor::open_file_at_cursor() {
     if (strcmp(file_explorer.entries[cursor.row].chars.data(), ".") == 0) return;
     if (strcmp(file_explorer.entries[cursor.row].chars.data(), "..") == 0) {
         if (!file_explorer.current_path.has_parent_path()) return;
-        opening_path = file_explorer.current_path.parent_path(); 
+        opening_path = file_explorer.current_path.parent_path();
     }
     else {
         opening_path = file_explorer.current_path / file_explorer.entries[cursor.row].chars.data();

@@ -20,22 +20,22 @@ inline static Editor editor;
 inline static const char* file_path;
 void handle_keydown(SDL_KeyboardEvent& event);
 void handle_keyup(SDL_KeyboardEvent& event);
-int main(int argc, char** argv)
-{
+
+int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
-    
+
     check(SDL_Init(SDL_INIT_VIDEO));
     check(TTF_Init());
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
-// init stuff 
+// init stuff
     SDL_Window* window = check(SDL_CreateWindow("gnout",
                                 SDL_WINDOWPOS_UNDEFINED,
                                 SDL_WINDOWPOS_UNDEFINED,
                                 SCREEN_WIDTH, SCREEN_HEIGHT,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI));
-    
+
     int gl_ver_major, gl_ver_minor;
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &gl_ver_major);
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &gl_ver_minor);
@@ -53,7 +53,7 @@ int main(int argc, char** argv)
         glEnable(GL_DEBUG_OUTPUT);
         glDebugMessageCallback(MessageCallback, 0);
     }
-    EditorRenderer renderer("./fonts/iosevka-regular.ttf", 32);
+    EditorRenderer renderer("./fonts/JetBrainsMono-Regular.ttf", 32);
     if (argc > 1) {
         file_path = argv[1];
         if (editor.load(argv[1]) == false) {
@@ -66,54 +66,52 @@ int main(int argc, char** argv)
     SDL_Event event {};
     bool quit = false;
     while (!quit) {
-        uint32_t start_tick = SDL_GetTicks(); // start tick for fps handle
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-            case SDL_QUIT: {
-                quit = true;
-            } break;
-            case SDL_MULTIGESTURE: {
-                printf("multi gesture detected\n");
-                printf("nF: %u\n", event.mgesture.numFingers);
-                printf("x : %f\n", event.mgesture.x);
-                printf("y : %f\n", event.mgesture.y);
-                printf("d : %f\n", event.mgesture.dDist);
-            } break;
-            case SDL_WINDOWEVENT: {
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    SCREEN_WIDTH = event.window.data1;
-                    SCREEN_HEIGHT = event.window.data2;
-                    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-                }
-            } break;
-            case SDL_MOUSEBUTTONDOWN: {
-                int x = 0, y = 0;
-                uint32_t mouse_button = SDL_GetMouseState(&x, &y);
-                if (mouse_button == SDL_BUTTON_LEFT) {
-                    renderer.set_cursor_to_mouse(&editor, vec2f((float)x, (float)y));
-                }
-            } break;
-            case SDL_MOUSEWHEEL: {
-                Vec2f vel = normalized(vec2f(event.wheel.x, event.wheel.y));
-                vel.x *= SCROLL_SENSITIVITY;
-                vel.y *= SCROLL_SENSITIVITY;
-                renderer.add_camera_velocity(vel); 
-            } break;
-            case SDL_KEYDOWN: {
-                handle_keydown(event.key);
-            } break;
-            case SDL_KEYUP: {
-                handle_keyup(event.key);
-            } break;
-            case SDL_TEXTINPUT: {
-                if (editor.get_mode() == TEXT) {
-                    const char* text = event.text.text;
-                    editor.insert_at_cursor(text, strlen(text));
-                }
-            } break;
+        uint32_t start_tick = SDL_GetTicks(); // start tick for fps handle while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+        case SDL_QUIT: {
+            quit = true;
+        } break;
+        case SDL_MULTIGESTURE: {
+            printf("multi gesture detected\n");
+            printf("nF: %u\n", event.mgesture.numFingers);
+            printf("x : %f\n", event.mgesture.x);
+            printf("y : %f\n", event.mgesture.y);
+            printf("d : %f\n", event.mgesture.dDist);
+        } break;
+        case SDL_WINDOWEVENT: {
+            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                SCREEN_WIDTH = event.window.data1;
+                SCREEN_HEIGHT = event.window.data2;
+                glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
             }
+        } break;
+        case SDL_MOUSEBUTTONDOWN: {
+            int x = 0, y = 0;
+            uint32_t mouse_button = SDL_GetMouseState(&x, &y);
+            if (mouse_button == SDL_BUTTON_LEFT) {
+                renderer.set_cursor_to_mouse(&editor, vec2f((float)x, (float)y));
+            }
+        } break;
+        case SDL_MOUSEWHEEL: {
+            Vec2f vel = normalized(vec2f(event.wheel.x, event.wheel.y));
+            vel.x *= SCROLL_SENSITIVITY;
+            vel.y *= SCROLL_SENSITIVITY;
+            renderer.add_camera_velocity(vel);
+        } break;
+        case SDL_KEYDOWN: {
+            handle_keydown(event.key);
+        } break;
+        case SDL_KEYUP: {
+            handle_keyup(event.key);
+        } break;
+        case SDL_TEXTINPUT: {
+            if (editor.get_mode() == TEXT) {
+                const char* text = event.text.text;
+                editor.insert_at_cursor(text, strlen(text));
+            }
+        } break;
         }
-        
+
         renderer.move_camera(DELTA_TIME);
         renderer.render(&editor, start_tick / 1000.0f);
         SDL_GL_SwapWindow(window);
@@ -173,7 +171,7 @@ void handle_keydown(SDL_KeyboardEvent& event) {
         if (onCtrl && editor.get_mode() == TEXT) {
             editor.change_mode(FILE_EXPLORER);
         }
-    } break; 
+    } break;
     case SDLK_c: {
         if (onCtrl && editor.has_selected_text()) {
             std::string selected_text = editor.get_selected_text();
