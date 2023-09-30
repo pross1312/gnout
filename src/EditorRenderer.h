@@ -9,7 +9,7 @@ inline const char* shader_files[] {
 };
 inline constexpr GLenum shader_types[] {
     GL_VERTEX_SHADER,
-    GL_FRAGMENT_SHADER       
+    GL_FRAGMENT_SHADER
 };
 #define SCROLL_SPEED 10
 #define SCROLL_SENSITIVITY 50
@@ -19,7 +19,7 @@ static_assert(n_shaders == sizeof(shader_types) / sizeof(shader_types[0]));
 
 struct UV_cache {
     Vec2f uv;
-    float width;  
+    float width;
 };
 
 struct Glyph {
@@ -57,7 +57,7 @@ inline const Glyph_Defs glyph_attr_defs[COUNT_GLYPH_ATTR] {
 static_assert(COUNT_GLYPH_ATTR == 6 && "The amound of glyph attribute has changed");
 
 
-#define BUFFER_INIT_CAP (1000 * 512)
+#define BUFFER_INIT_CAP (1024 * 512)
 
 
 
@@ -84,7 +84,7 @@ private:
     inline static Vec4f cursor_color { div(Vec4f {UNHEX(float, 0x888888ff)}, 255.0f) };
     inline static Vec4f text_on_cursor { div(Vec4f {UNHEX(float, 0xff)}, 255.0f) };
     inline static constexpr float cursor_draw_interval = .85; // draw/notdraw times in second
-    
+
 private:
     Vec2f camera;
     Vec2f camVelocity;
@@ -98,7 +98,7 @@ private:
     size_t buffer_count;
 
     TTF_Font* font;
-    GLuint cache_font_texture; 
+    GLuint cache_font_texture;
     Vec2f cache_font_size;
 
     // store uv offset and width, in order
