@@ -66,50 +66,52 @@ int main(int argc, char** argv) {
     SDL_Event event {};
     bool quit = false;
     while (!quit) {
-        uint32_t start_tick = SDL_GetTicks(); // start tick for fps handle while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-        case SDL_QUIT: {
-            quit = true;
-        } break;
-        case SDL_MULTIGESTURE: {
-            printf("multi gesture detected\n");
-            printf("nF: %u\n", event.mgesture.numFingers);
-            printf("x : %f\n", event.mgesture.x);
-            printf("y : %f\n", event.mgesture.y);
-            printf("d : %f\n", event.mgesture.dDist);
-        } break;
-        case SDL_WINDOWEVENT: {
-            if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                SCREEN_WIDTH = event.window.data1;
-                SCREEN_HEIGHT = event.window.data2;
-                glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        uint32_t start_tick = SDL_GetTicks(); // start tick for fps handle
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+            case SDL_QUIT: {
+                quit = true;
+            } break;
+            case SDL_MULTIGESTURE: {
+                printf("multi gesture detected\n");
+                printf("nF: %u\n", event.mgesture.numFingers);
+                printf("x : %f\n", event.mgesture.x);
+                printf("y : %f\n", event.mgesture.y);
+                printf("d : %f\n", event.mgesture.dDist);
+            } break;
+            case SDL_WINDOWEVENT: {
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    SCREEN_WIDTH = event.window.data1;
+                    SCREEN_HEIGHT = event.window.data2;
+                    glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+                }
+            } break;
+            case SDL_MOUSEBUTTONDOWN: {
+                int x = 0, y = 0;
+                uint32_t mouse_button = SDL_GetMouseState(&x, &y);
+                if (mouse_button == SDL_BUTTON_LEFT) {
+                    renderer.set_cursor_to_mouse(&editor, vec2f((float)x, (float)y));
+                }
+            } break;
+            case SDL_MOUSEWHEEL: {
+                Vec2f vel = normalized(vec2f(event.wheel.x, event.wheel.y));
+                vel.x *= SCROLL_SENSITIVITY;
+                vel.y *= SCROLL_SENSITIVITY;
+                renderer.add_camera_velocity(vel);
+            } break;
+            case SDL_KEYDOWN: {
+                handle_keydown(event.key);
+            } break;
+            case SDL_KEYUP: {
+                handle_keyup(event.key);
+            } break;
+            case SDL_TEXTINPUT: {
+                if (editor.get_mode() == TEXT) {
+                    const char* text = event.text.text;
+                    editor.insert_at_cursor(text, strlen(text));
+                }
+            } break;
             }
-        } break;
-        case SDL_MOUSEBUTTONDOWN: {
-            int x = 0, y = 0;
-            uint32_t mouse_button = SDL_GetMouseState(&x, &y);
-            if (mouse_button == SDL_BUTTON_LEFT) {
-                renderer.set_cursor_to_mouse(&editor, vec2f((float)x, (float)y));
-            }
-        } break;
-        case SDL_MOUSEWHEEL: {
-            Vec2f vel = normalized(vec2f(event.wheel.x, event.wheel.y));
-            vel.x *= SCROLL_SENSITIVITY;
-            vel.y *= SCROLL_SENSITIVITY;
-            renderer.add_camera_velocity(vel);
-        } break;
-        case SDL_KEYDOWN: {
-            handle_keydown(event.key);
-        } break;
-        case SDL_KEYUP: {
-            handle_keyup(event.key);
-        } break;
-        case SDL_TEXTINPUT: {
-            if (editor.get_mode() == TEXT) {
-                const char* text = event.text.text;
-                editor.insert_at_cursor(text, strlen(text));
-            }
-        } break;
         }
 
         renderer.move_camera(DELTA_TIME);
